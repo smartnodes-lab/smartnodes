@@ -3,20 +3,16 @@
 #[ink::contract]
 mod nexus {
 
-    /// Defines the storage of your contract.
-    /// Add new fields to the below struct in order
-    /// to add new static storage fields to your contract.
     #[ink(storage)]
     pub struct Nexus {
-        /// Stores a single `bool` value on the storage.
-        value: bool,
+
     }
 
     impl Nexus {
         /// Constructor that initializes the `bool` value to the given `init_value`.
         #[ink(constructor)]
         pub fn new(init_value: bool) -> Self {
-            Self { value: init_value }
+            Self {  }
         }
 
         /// Constructor that initializes the `bool` value to `false`.
