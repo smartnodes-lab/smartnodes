@@ -3,16 +3,24 @@
 #[ink::contract]
 mod nexus {
 
+    use src::Job;
+    use ink::storage::Mapping;
+
     #[ink(storage)]
     pub struct Nexus {
-
+        job_index: i64,
+        index_to_proposal: Mapping<u32, Job>,
+        // user_to_amount_funded: Mapping<AccountId, u32>,
+        // min_stake: u8
     }
 
     impl Nexus {
-        /// Constructor that initializes the `bool` value to the given `init_value`.
         #[ink(constructor)]
         pub fn new(init_value: bool) -> Self {
-            Self {  }
+            Self {
+                job_index: 0,
+            }
+
         }
 
         /// Constructor that initializes the `bool` value to `false`.
