@@ -4,13 +4,13 @@ The fast-evolving field of artificial intelligence (AI) has witnessed an unprece
 
 Introducing TaskNet (name TBD), a network poised to transform the landscape of AI development and utilization. TaskNet aims to create innovative markets for machine learning (ML) models and datasets, facilitating collaboration and competition amongst individuals and solving the growing demand for computational power. Through a lucrative reward-based system, users will be incentivized to contribute their computing power for the training and execution of machine learning (ML) models. End-users will have the flexibility to train or run their own models within the platform, or harness the power of solvers on the network competing to solve their dataset. Furthermore, TaskNet proposes novel machine-to-human (M2H) interfaces aimed to enhance decentralized and automated systems, as well as the training of AI models. 
 
-This project seeks to utilize Aleph Zero’s near-instant finality, security, and low transaction costs to verifiably transmit data between users and solvers. Likewise, there is the option to build upon existing technology like BOINC, leveraging its capabilities in distributed computing if warrented in the future. Additionally, a new P2P machine learning-based library will be developed in Rust, providing a custom-built solution tailed to Aleph Zero’s ink! smart contracts. 
+- This project seeks to utilize Aleph Zero’s near-instant finality, security, and low transaction costs to verifiably transmit data between users and solvers. Likewise, there is the option to build upon existing technology like BOINC, leveraging its capabilities in distributed computing if warrented in the future. 
 
-Alternatively, a P2P machine learning-based library will be developed in Rust, providing a solution tailed to Aleph Zero’s ink! smart contracts. 
+- Additionally, machine learning-based libraries in multiple programming languages will be developed to provide a custom-built solution tailed to Aleph Zero’s ink! smart contracts. 
 
 Miners on the platform will have the option to solve ML problems with or without user-defined models. Miners can compete against each other to find the best solution to the given ML problem. Alternatively, all models can be combined using a voting classifier-like mechanism to enhance accuracy and performance. Users may already have models as well and only require on-demand access to their execution, in which case miners would only need to download and run a particular algorithms (perhaps this solution would run at lower cost than the problem-solving market). 
 
-The platform will provide use-friendly APIs in common programming languages, making it effortless for developers to integrate with the platform.
+- The platform will provide use-friendly APIs in common programming languages, making it effortless for developers to integrate with the platform.
 
 This infrastructure creates a competitive marketplace for AI and potentially other computational problems. Additionally, the platform could contain a marketplace for AI training data where users can access and trade high-quality labeled training datasets,  facilitating the development and training of ML models across various domains.
 
