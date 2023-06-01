@@ -1,15 +1,17 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use self::poll::PollRef;
+
 #[ink::contract]
 mod poll {
 
     use ink::storage::Mapping;
-    use ink::prelude::{string::String, vec::Vec};
-    use ink::primitives::Hash;
+    use ink::prelude::string::String;
+    // use ink::primitives::Hash;
 
     #[ink(storage)]
     pub struct Poll {
-        owner: AccoundId,
+        owner: AccountId,
         /// Title of job (keep it short)
         title: String,
         /// Description of poll (include multiple choice answers + format or other information
@@ -18,7 +20,7 @@ mod poll {
         /// Reward and reward schemes
         reward: u32,
         reward_dist: bool,
-        answers: Mapping<AccoundId, String>,
+        answers: Mapping<AccountId, u8>,
         // n_responses: u32,
         // filters: str
     }
@@ -27,7 +29,7 @@ mod poll {
     //
     // }
 
-    impl Job {
+    impl Poll {
         #[ink(constructor)]
         pub fn new(
             _title: String, _description: String, _reward: u32, _reward_dist: bool
@@ -44,18 +46,16 @@ mod poll {
             }
         }
 
-        // #[ink(message)]
-        // pub fn answer(&mut self, _answer: String) {
-        //     let caller = self.env().caller();
-        //
-        //     // assert_eq!(self.answers.get(caller), );
-        //
-        //     self.answers.insert(caller, _answer);
-        //
-        //     // Send event of loss submission after submission of loss
-        //     // self.env().emit_event(SentLoss {});
-        // }
+        #[ink(message)]
+        pub fn answer(&mut self, _answer: u8) {
+            let caller = self.env().caller();
+
+            // assert_eq!(self.answers.get(caller), );
+
+            self.answers.insert(caller, &_answer);
+
+            // Send event of loss submission after submission of loss
+            // self.env().emit_event(SentLoss {});
+        }
     }
 }
-
-pub use self::poll::Poll;
