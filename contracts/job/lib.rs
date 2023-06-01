@@ -52,19 +52,21 @@ mod job {
             }
         }
 
-        #[ink(message)]
-        pub fn send_loss(&mut self, loss_hash: Hash) {
-            let from = self.env().caller();
+        // #[ink(message)]
+        // pub fn send_loss(&mut self, loss_hash: Hash) {
+        //     let from = self.env().caller();
+        //
+        //     if from != self.owner {
+        //         ;
+        //     }
+        //
+        //     // Send event of loss submission after submission of loss
+        //     // self.env().emit_event(SentLoss {});
+        // }
 
-            if from != self.owner {
-                ;
-            }
-
-            // Send event of loss submission after submission of loss
-            // self.env().emit_event(SentLoss {});
-        }
-
-        #[ink(message)]
-        pub fn
+        // #[ink(message)]
+        // pub fn
     }
 }
+
+pub use self::job::Job;
