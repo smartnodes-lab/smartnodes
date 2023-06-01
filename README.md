@@ -1,4 +1,4 @@
-# TaskNet
+# TaskNet Whitepaper (in progress)
 
 The fast-evolving field of artificial intelligence (AI) has witnessed an unprecedented surge of adoption and innovation in recent years. This growth has been fuelled by the emergence of larger and more intricate models, such as the transformer neural network. These advanced models require substantial computational power for training and operating at scale. Likewise, AI continues to integrate with current web3 and business applications, further increasing the demand for computational resources. However, traditional consumer hardware falls short in delivering the power needed to train and utilize modern algorithms. Unfortunately, current solutions are mainly offered by large privatized corporations, which are capable of controlling access to, and development of this transformative technology. Moreover, these solutions can be costly, creating a barrier for both large-scale applications and casual programmers. While decentralized platforms such as BOINC offer distributed computing power for research purposes, there is a noticeable gap when it comes to platforms tailored to meet the needs of consumers and businesses.
 
