@@ -4,13 +4,13 @@
 mod nexus {
 
     use ink::storage::Mapping;
-    // use ::job_market::JobRef;
+    use poll_market::PollMarketRef;
     use ink::primitives::AccountId;
 
     #[ink(storage)]
     pub struct Nexus {
-        job_market: i64,
-        index_to_job: Mapping<AccountId, i64>,
+        poll_market: PollMarketRef,
+        // index_to_job: Mapping<AccountId, i64>,
         // user_to_amount_funded: Mapping<AccountId, u32>,
         // min_stake: u8
     }
@@ -19,8 +19,8 @@ mod nexus {
         #[ink(constructor)]
         pub fn new() -> Self {
             Self {
-                job_index: 0,
-                index_to_job: Mapping::default()
+                poll_index: 0,
+                // index_to_job: Mapping::default()
             }
         }
 
