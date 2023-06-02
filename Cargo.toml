@@ -1,5 +1,5 @@
 [package]
-name = "nexus"
+name = "tasknet"
 version = "0.1.0"
 authors = ["[your_name] <[your_email]>"]
 edition = "2021"
@@ -14,7 +14,7 @@ poll_market = { path = "contracts/poll_market", default-features = false, featur
 #job = { path = "contracts/job", default-features = false, features = ["ink-as-dependency"] }
 
 [lib]
-name = "nexus"
+name = "tasknet"
 path = "lib.rs"
 crate-type = [
 	# Used for normal contract Wasm blobs.

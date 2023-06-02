@@ -1,40 +1,47 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[ink::contract]
-mod nexus {
+mod tasknet {
 
-    use ink::storage::Mapping;
-    use poll_market::PollMarketRef;
     use ink::primitives::AccountId;
+    use ink::prelude::collections::HashMap;
+    use ink::storage::Mapping;
+    use ink::prelude::{string::String, vec::Vec};
 
     #[ink(storage)]
-    pub struct Nexus {
-        poll_market: PollMarketRef,
-        // index_to_job: Mapping<AccountId, i64>,
-        // user_to_amount_funded: Mapping<AccountId, u32>,
-        // min_stake: u8
+    pub struct TaskNet {
+        polls: Mapping<i64, Poll>,
+        next_poll_id: i64,
     }
 
-    impl Nexus {
-        #[ink(constructor)]
-        pub fn new() -> Self {
+    impl TaskNet {
+        #[ink(contract)]
+        pub fn new() -> Self{
             Self {
-                poll_index: 0,
-                // index_to_job: Mapping::default()
+                polls: Mapping::new(),
+                next_poll_id: 1,
             }
         }
 
         #[ink(message)]
-        pub fn add_job(&mut self) {
-            let caller = Self::env().caller();
+        pub fn create_poll(
+            &mut self, title: String, description: String, responses: Vec<String>, reward: Balance
+        ) {
+            let poll = Poll {
+                title,
+                description,
+                responses,
+                reward,
+                has_voted: HashMap::new()
+            };
 
-            self.index_to_job.insert(&caller, &self.job_index);
-            self.job_index += 1;
+            self.polls.insert(&self.next_poll_id, &poll);
+            self.next_poll_id += 1;
         }
 
-        // #[ink(message)]
-        // pub fn get_job_num(self) -> i64 {
-        //     self.job_index
-        // }
+        #[ink(message)]
+        pub fn display_poll(&self, poll_id: i64) -> Option<Poll> {
+            self.polls.get(&poll_id)
+        }
     }
 }
