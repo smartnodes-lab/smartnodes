@@ -7,14 +7,11 @@ mod job {
 
     use ink::storage::Mapping;
     use ink::prelude::string::String;
-    // use ink::primitives::Hash;
 
     #[ink(storage)]
     pub struct Job {
         owner: AccountId,
-        // Title of job (keep it short)
         title: String,
-        // Description of job
         description: String,
         reward: u32,
         reward_dist: bool,

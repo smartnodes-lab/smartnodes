@@ -4,11 +4,12 @@
 mod nexus {
 
     use ink::storage::Mapping;
-    use ::job::JobRef;
+    // use ::job_market::JobRef;
+    use ink::primitives::AccountId;
 
     #[ink(storage)]
     pub struct Nexus {
-        job_index: i64,
+        job_market: i64,
         index_to_job: Mapping<AccountId, i64>,
         // user_to_amount_funded: Mapping<AccountId, u32>,
         // min_stake: u8
