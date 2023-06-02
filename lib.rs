@@ -1,21 +1,33 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 #[ink::contract]
 mod tasknet {
 
-    use ink::primitives::AccountId;
-    use ink::prelude::collections::HashMap;
+    use ink::prelude::vec::Vec;
     use ink::storage::Mapping;
-    use ink::prelude::{string::String, vec::Vec};
+    use ink::prelude::string::String;
+    // use ink::storage::traits::{Packed}
+
+    #[derive(scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(::scale_info::TypeInfo))]
+    pub struct Poll {
+        title: String,
+        description: String,
+        responses: Vec<String>,
+        reward: Balance
+    }
+
+    impl scale::EncodeLike<String> for Poll {}
 
     #[ink(storage)]
     pub struct TaskNet {
-        polls: Mapping<i64, Poll>,
+        polls: Mapping<i64, String>,
         next_poll_id: i64,
     }
 
+
     impl TaskNet {
-        #[ink(contract)]
+        #[ink(constructor)]
         pub fn new() -> Self{
             Self {
                 polls: Mapping::new(),
@@ -25,14 +37,13 @@ mod tasknet {
 
         #[ink(message)]
         pub fn create_poll(
-            &mut self, title: String, description: String, responses: Vec<String>, reward: Balance
+            &mut self, title: String, description: String, reward: Balance
         ) {
             let poll = Poll {
                 title,
                 description,
-                responses,
-                reward,
-                has_voted: HashMap::new()
+                responses: Vec::new(),
+                reward
             };
 
             self.polls.insert(&self.next_poll_id, &poll);
@@ -40,7 +51,7 @@ mod tasknet {
         }
 
         #[ink(message)]
-        pub fn display_poll(&self, poll_id: i64) -> Option<Poll> {
+        pub fn display_poll(&self, poll_id: i64) -> Option<String> {
             self.polls.get(&poll_id)
         }
     }

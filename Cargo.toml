@@ -10,16 +10,12 @@ ink = { version = "4.0.0-beta", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.3", default-features = false, features = ["derive"], optional = true }
 
-poll_market = { path = "contracts/poll_market", default-features = false, features = ["ink-as-dependency"] }
+#poll_market = { path = "contracts/poll_market", default-features = false, features = ["ink-as-dependency"] }
 #job = { path = "contracts/job", default-features = false, features = ["ink-as-dependency"] }
 
 [lib]
 name = "tasknet"
 path = "lib.rs"
-crate-type = [
-	# Used for normal contract Wasm blobs.
-	"cdylib",
-]
 
 [features]
 default = ["std"]
