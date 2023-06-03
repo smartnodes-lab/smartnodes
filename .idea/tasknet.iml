@@ -5,6 +5,7 @@
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/contracts/job/target" />
       <excludeFolder url="file://$MODULE_DIR$/contracts/poll_market/target" />
+      <excludeFolder url="file://$MODULE_DIR$/contracts/poll/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

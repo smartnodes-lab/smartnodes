@@ -5,54 +5,43 @@ pub use self::poll::PollRef;
 #[ink::contract]
 mod poll {
 
-    use ink::storage::Mapping;
     use ink::prelude::string::String;
-    // use ink::primitives::Hash;
+    use ink::storage::Mapping;
 
     #[ink(storage)]
+    #[derive(scale::Encode)]
+    #[cfg_attr(feature = "std", derive(::scale_info::TypeInfo))]
     pub struct Poll {
-        owner: AccountId,
-        /// Title of job (keep it short)
         title: String,
-        /// Description of poll (include multiple choice answers + format or other information
-        /// that could assist with formating and compiling answers at the end of poll
         description: String,
-        /// Reward and reward schemes
-        reward: u32,
-        reward_dist: bool,
-        answers: Mapping<AccountId, u8>,
-        // n_responses: u32,
-        // filters: str
+        responses: Mapping<AccountId, String>,
+        reward: Balance
     }
 
-    // pub struct Answer {
-    //
-    // }
+    impl scale::EncodeLike<String> for Poll {}
 
     impl Poll {
         #[ink(constructor)]
         pub fn new(
-            _title: String, _description: String, _reward: u32, _reward_dist: bool
+            title: String, description: String, reward: Balance
         ) -> Self {
             let caller = Self::env().caller();
 
             Self {
-                owner: caller,
-                title: _title,
-                description: _description,
-                reward: _reward,
-                reward_dist: _reward_dist,
-                answers: Mapping::default(),
+                title,
+                description,
+                responses: Mapping::new(),
+                reward,
             }
         }
 
         #[ink(message)]
-        pub fn answer(&mut self, _answer: u8) {
+        pub fn answer(&mut self, answer: String) {
             let caller = self.env().caller();
 
             // assert_eq!(self.answers.get(caller), );
 
-            self.answers.insert(caller, &_answer);
+            self.responses.insert(&answer);
 
             // Send event of loss submission after submission of loss
             // self.env().emit_event(SentLoss {});

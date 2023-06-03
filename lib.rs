@@ -6,18 +6,7 @@ mod tasknet {
     use ink::prelude::vec::Vec;
     use ink::storage::Mapping;
     use ink::prelude::string::String;
-    // use ink::storage::traits::{Packed}
-
-    #[derive(scale::Encode, scale::Decode)]
-    #[cfg_attr(feature = "std", derive(::scale_info::TypeInfo))]
-    pub struct Poll {
-        title: String,
-        description: String,
-        responses: Vec<String>,
-        reward: Balance
-    }
-
-    impl scale::EncodeLike<String> for Poll {}
+    use contracts::poll::PollRef as Poll;
 
     #[ink(storage)]
     pub struct TaskNet {
@@ -28,7 +17,7 @@ mod tasknet {
 
     impl TaskNet {
         #[ink(constructor)]
-        pub fn new() -> Self{
+        pub fn new() -> Self {
             Self {
                 polls: Mapping::new(),
                 next_poll_id: 1,
