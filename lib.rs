@@ -6,12 +6,11 @@ mod tasknet {
     use ink::prelude::vec::Vec;
     use ink::storage::Mapping;
     use ink::prelude::string::String;
-    use contracts::poll::PollRef as Poll;
+    use poll_market::PollMarket;
 
     #[ink(storage)]
     pub struct TaskNet {
-        polls: Mapping<i64, String>,
-        next_poll_id: i64,
+        poll_market: PollMarket,
     }
 
 
@@ -19,8 +18,7 @@ mod tasknet {
         #[ink(constructor)]
         pub fn new() -> Self {
             Self {
-                polls: Mapping::new(),
-                next_poll_id: 1,
+                poll_market: PollMarket::new(),
             }
         }
 
@@ -28,20 +26,26 @@ mod tasknet {
         pub fn create_poll(
             &mut self, title: String, description: String, reward: Balance
         ) {
-            let poll = Poll {
-                title,
-                description,
-                responses: Vec::new(),
-                reward
-            };
-
-            self.polls.insert(&self.next_poll_id, &poll);
-            self.next_poll_id += 1;
+            self.poll_market.create_poll(title, description, reward);
         }
 
-        #[ink(message)]
-        pub fn display_poll(&self, poll_id: i64) -> Option<String> {
-            self.polls.get(&poll_id)
+        // #[ink(message)]
+        // pub fn display_poll(&self, poll_id: int) -> Option<Poll> {
+        //
+        // }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[ink::test]
+        pub fn create_poll_works() {
+            let mut net = TaskNet::new();
+
+            net.create_poll(String::from("First Poll"),
+                            String::from("What is your favourite pokemon card?"),
+                            1);
         }
     }
 }
