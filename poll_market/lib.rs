@@ -37,7 +37,7 @@ mod poll_market {
 
         #[ink(message)]
         pub fn create_poll(
-            &mut self, title: String, description: String, reward: Balance, n_responses: i16
+            &mut self, title: String, description: String, reward: Balance
         ) {
             let creator: AccountId = Self::env().caller();
             let poll = Poll {
@@ -45,8 +45,8 @@ mod poll_market {
                 title,
                 description,
                 reward,
-                responses: Vec::with_capacity(n_responses),
-                participants: Vec::with_capacity(n_responses)
+                responses: Vec::new(),
+                participants: Vec::new()
             };
 
             self.polls.insert(self.next_poll_id, &poll);
@@ -68,16 +68,14 @@ mod poll_market {
             let mut market: PollMarket = PollMarket::new();
 
             market.create_poll(
-                String::from("Flagged Comment: I like apples."),
+                String::from("Flagged Comment: I like pokeman cards."),
                 String::from("Is this post harmful? (y/n)"),
-                1,
-                10
+                1
             );
             market.create_poll(
                 String::from("Flagged Comment: Your mom is a whore"),
                 String::from("Is this post harmful? (y/n)"),
-                1,
-                10
+                1
             );
 
             let poll = market.polls.get(1).unwrap();

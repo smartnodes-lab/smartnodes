@@ -1,4 +1,4 @@
-#![cfg_attr(not(feature = "std"), no_std, no_main)]
+#![cfg_attr(not(feature = "std"), no_std, no_std)]
 
 #[ink::contract]
 mod tasknet {
@@ -31,8 +31,6 @@ mod tasknet {
         #[ink::test]
         pub fn init() {
             let mut network = TaskNet::new();
-
-
         }
     }
 }
