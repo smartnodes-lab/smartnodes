@@ -5,28 +5,33 @@ pub use self::poll_market::PollMarket;
 #[ink::contract]
 mod poll_market {
 
+    use ink::prelude::collections::HashMap;
     use ink::storage::Mapping;
     use ink::prelude::{string::String, vec::Vec};
 
+    #[derive(scale::Decode, scale::Encode)]
+    #[cfg_attr(feature = "std",derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
     pub struct Poll {
         creator: AccountId,
         title: String,
         description: String,
         reward: Balance,
-        responses: Mapping<AccountId, String>
+        responses: Vec<String>,
+        participants: Vec<AccountId>
     }
 
     #[ink(storage)]
+    #[cfg_attr(feature = "std",derive(scale_info::TypeInfo))]
     pub struct PollMarket {
-        polls: Vec<Poll>,
-        next_poll_id: usize,
+        polls: Mapping<i64, Poll>,
+        next_poll_id: i64,
     }
 
     impl PollMarket {
         #[ink(constructor)]
         pub fn new() -> Self{
             Self {
-                polls: Vec::new(),
+                polls: Mapping::new(),
                 next_poll_id: 0,
             }
         }
@@ -41,10 +46,11 @@ mod poll_market {
                 title,
                 description,
                 reward,
-                responses: Mapping::new()
+                responses: Vec::new(),
+                participants: Vec::new()
             };
 
-            self.polls.insert(self.next_poll_id, poll);
+            self.polls.insert(self.next_poll_id, &poll);
             self.next_poll_id += 1;
         }
 
