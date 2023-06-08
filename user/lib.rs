@@ -8,7 +8,6 @@ mod user {
         address: AccountId,
         username: String,
         descriptors: String,
-        // reputation
     }
 
     impl User {

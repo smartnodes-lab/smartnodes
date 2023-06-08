@@ -4,8 +4,8 @@
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/contracts/poll/target" />
-      <excludeFolder url="file://$MODULE_DIR$/experimental_contracts/job/target" />
-      <excludeFolder url="file://$MODULE_DIR$/experimental_contracts/poll_market/target" />
+      <excludeFolder url="file://$MODULE_DIR$/experimental/job/target" />
+      <excludeFolder url="file://$MODULE_DIR$/poll_market/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
