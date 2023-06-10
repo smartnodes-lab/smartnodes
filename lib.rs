@@ -28,6 +28,7 @@ mod tasknet {
         address: AccountId,
         username: String,
         descriptors: Vec<String>,
+        cv: Vec<String>
     }
 
     #[derive(Debug, PartialEq, scale::Encode, scale::Decode)]
@@ -40,6 +41,7 @@ mod tasknet {
 
     #[ink(storage)]
     pub struct TaskNet {
+        // Declaring TaskNet environment (storage variables for contract)
         polls: Mapping<i64, Poll>,
         next_poll_id: i64,
         users: Mapping<AccountId, User>
@@ -48,11 +50,11 @@ mod tasknet {
     impl TaskNet {
         #[ink(constructor)]
         pub fn new() -> Self {
+            // Instantiate TaskNet environment
             Self {
                 polls: Mapping::new(),
                 next_poll_id: 0,
                 users: Mapping::new()
-
             }
         }
 
@@ -64,6 +66,8 @@ mod tasknet {
             reward: Balance
         ) {
             let author: AccountId = Self::env().caller();
+
+            // Create Poll if user is signed on the network
             if self.users.contains(author) {
                 let poll: Poll = Poll {
                     author,
@@ -75,6 +79,7 @@ mod tasknet {
                     open: true,
                 };
 
+                // Insert poll to contract and update poll_id
                 self.polls.insert(self.next_poll_id, &poll);
                 self.next_poll_id += 1;
             }
@@ -84,6 +89,9 @@ mod tasknet {
         pub fn close_poll(&self, poll_id: i64) {
             let caller: AccountId = Self::env().caller();
 
+            // Close poll if caller is the poll author
+            // For future reference, only allow poll to close if the reward-type was specified or a
+            // a problem occurs (rewards should be locked and sent to participants)
             if self.users.contains(caller) {
                 if let Some(mut poll) = self.get_poll(poll_id) {
                     if poll.author == caller {
@@ -94,15 +102,36 @@ mod tasknet {
         }
 
         #[ink(message)]
-        pub fn create_user(&mut self, username: String) {
+        pub fn create_user(
+            &mut self,
+            username: String,
+            descriptors: Option<Vec<String>>,
+            cv: Option<Vec<String>>
+        ) {
             let caller = Self::env().caller();
-            let user = User {
-                address: caller,
-                username,
-                descriptors: Vec::new()
-            };
 
-            self.users.insert(caller, &user);
+            // Create user if address isn't linked to an account
+            if !self.users.contains(caller) {
+                let mut user = User {
+                    address: caller,
+                    username,
+                    descriptors: Vec::new(),
+                    cv: Vec::new()
+                };
+
+                // If descriptors were specified, add to descriptors
+                if let Some(descriptors) = descriptors {
+                    for descriptor in descriptors {
+                        user.descriptors.push(descriptor);
+                    }
+                }
+
+                if let Some(cv) = cv {
+                    // do some cv processing here (one String per job experience? skills?)
+                }
+
+                self.users.insert(caller, &user);
+            }
         }
 
         #[ink(message)]
@@ -135,6 +164,13 @@ mod tasknet {
         //     }
         //     return user_polls;
         // }
+        //
+        // // Module for selecting key, value pairs denoted by String("Key: Value")
+        // let key_value: Vec<String> = descriptor.split(": ")
+        //     .map(|s| s.to_string())
+        //     .collect();
+        // let _key = &key_value[0];
+        // let _value = &key_value[1];
     }
 
     #[cfg(test)]
@@ -145,8 +181,15 @@ mod tasknet {
         pub fn tasknet_works() {
             let mut net: TaskNet = TaskNet::new();
 
-            net.create_user(String::from("jumbomeats"));
-            // net.create_user(String::from("Poop"));
+            net.create_user(
+                String::from("jumbomeats"),
+                Some(vec![
+                    String::from("Gender: Male"),
+                    String::from("Age: 21"),
+                    String::from("Occupation: Astronaut")
+                    ]),
+                None
+            );
 
             net.create_poll(
                 String::from("Flagged Comment: I like pokeman cards."),
