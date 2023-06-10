@@ -1,4 +1,4 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 #[ink::contract]
 mod tasknet {
@@ -42,7 +42,7 @@ mod tasknet {
     pub struct TaskNet {
         polls: Mapping<i64, Poll>,
         next_poll_id: i64,
-        users: Vec<User>
+        users: Mapping<AccountId, User>
     }
 
     impl TaskNet {
@@ -51,7 +51,7 @@ mod tasknet {
             Self {
                 polls: Mapping::new(),
                 next_poll_id: 0,
-                users: Vec::new()
+                users: Mapping::new()
 
             }
         }
@@ -64,27 +64,31 @@ mod tasknet {
             reward: Balance
         ) {
             let author: AccountId = Self::env().caller();
-            let poll: Poll = Poll {
-                author,
-                title,
-                description,
-                reward,
-                responses: Vec::new(),
-                participants: Vec::new(),
-                open: true,
-            };
+            if self.users.contains(author) {
+                let poll: Poll = Poll {
+                    author,
+                    title,
+                    description,
+                    reward,
+                    responses: Vec::new(),
+                    participants: Vec::new(),
+                    open: true,
+                };
 
-            self.polls.insert(self.next_poll_id, &poll);
-            self.next_poll_id += 1;
+                self.polls.insert(self.next_poll_id, &poll);
+                self.next_poll_id += 1;
+            }
         }
 
         #[ink(message)]
         pub fn close_poll(&self, poll_id: i64) {
             let caller: AccountId = Self::env().caller();
 
-            if let Some(mut poll) = self.get_poll(poll_id) {
-                if poll.author == caller {
-                    poll.open = false;
+            if self.users.contains(caller) {
+                if let Some(mut poll) = self.get_poll(poll_id) {
+                    if poll.author == caller {
+                        poll.open = false;
+                    }
                 }
             }
         }
@@ -98,22 +102,25 @@ mod tasknet {
                 descriptors: Vec::new()
             };
 
-            self.users.push(user);
+            self.users.insert(caller, &user);
         }
 
         #[ink(message)]
         pub fn respond_to_poll(&mut self, poll_id: i64, response:String) {
             let caller = Self::env().caller();
 
-            if let Some(mut poll) = self.get_poll(poll_id) {
-                if !poll.participants.contains(&caller) {
-                    poll.participants.push(caller);
-                    poll.responses.push(response);
+            if self.users.contains(caller) {
+                if let Some(mut poll) = self.get_poll(poll_id) {
+                    if !poll.participants.contains(&caller) {
+                        poll.participants.push(caller);
+                        poll.responses.push(response);
+                    }
                 }
             }
         }
 
-        fn get_poll(&self, poll_id: i64) -> Option<Poll> {
+        #[ink(message)]
+        pub fn get_poll(&self, poll_id: i64) -> Option<Poll> {
             return self.polls.get(poll_id);
         }
 
@@ -147,12 +154,11 @@ mod tasknet {
                 1
             );
 
-            let poll = net.polls.get(1).unwrap();
+            let poll = net.get_poll(0).unwrap();
 
             println!("Poll Title: {}", poll.title);
             println!("Description: {}", poll.description);
             println!("Reward: {} AZERO", poll.reward);
-
 
         }
     }
