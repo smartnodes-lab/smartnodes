@@ -130,6 +130,7 @@ mod tasknet {
                     // do some cv processing here (one String per job experience? skills?)
                 }
 
+                // Add user to contract
                 self.users.insert(caller, &user);
             }
         }
@@ -138,6 +139,8 @@ mod tasknet {
         pub fn respond_to_poll(&mut self, poll_id: i64, response:String) {
             let caller = Self::env().caller();
 
+            // If user is not the author and the poll exists, allow response
+            // Maybe add limits for participant # and user filters
             if self.users.contains(caller) {
                 if let Some(mut poll) = self.get_poll(poll_id) {
                     if !poll.participants.contains(&caller) {
@@ -192,8 +195,8 @@ mod tasknet {
             );
 
             net.create_poll(
-                String::from("Flagged Comment: I like pokeman cards."),
-                String::from("Is this post harmful? (y/n)"),
+                String::from("Lens Network Flagged Comment: Your mom's a wanker"),
+                String::from("Was this post harmful? (y/n)"),
                 1
             );
 
