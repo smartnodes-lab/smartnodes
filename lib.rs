@@ -16,7 +16,10 @@ mod tasknet {
         responses: Vec<String>,
         participants: Vec<AccountId>,
         open: bool,
-        // locked_reward: bool,
+
+        // true: distributed among voters, false: random single distribution
+        reward_distribution: bool,
+
         // max_votes: Option<u32>,
         // cost_per_vote: Balance,
         // recommended_format: Option<String>,
@@ -63,7 +66,8 @@ mod tasknet {
             &mut self,
             title: String,
             description: String,
-            reward: Balance
+            reward: Balance,
+            reward_distribution: bool
         ) {
             let author: AccountId = Self::env().caller();
 
@@ -77,6 +81,7 @@ mod tasknet {
                     responses: Vec::new(),
                     participants: Vec::new(),
                     open: true,
+                    reward_distribution
                 };
 
                 // Insert poll to contract and update poll_id
@@ -85,8 +90,7 @@ mod tasknet {
             }
         }
 
-        #[ink(message)]
-        pub fn close_poll(&self, poll_id: i64) {
+        fn close_poll(&self, poll_id: i64) {
             let caller: AccountId = Self::env().caller();
 
             // Close poll if caller is the poll author
@@ -197,7 +201,8 @@ mod tasknet {
             net.create_poll(
                 String::from("Lens Network Flagged Comment: Your mom's a wanker"),
                 String::from("Was this post harmful? (y/n)"),
-                1
+                1,
+                true
             );
 
             let poll = net.get_poll(0).unwrap();
