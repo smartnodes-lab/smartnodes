@@ -14,7 +14,12 @@ mod tasknet {
         description: String,
         reward: Balance,
         responses: Vec<String>,
-        participants: Vec<AccountId>
+        participants: Vec<AccountId>,
+        open: bool,
+        // locked_reward: bool,
+        // max_votes: Option<u32>,
+        // cost_per_vote: Balance,
+        // recommended_format: Option<String>,
     }
 
     #[derive(scale::Decode, scale::Encode, Debug)]
@@ -65,7 +70,8 @@ mod tasknet {
                 description,
                 reward,
                 responses: Vec::new(),
-                participants: Vec::new()
+                participants: Vec::new(),
+                open: true,
             };
 
             self.polls.insert(self.next_poll_id, &poll);
@@ -76,16 +82,11 @@ mod tasknet {
         pub fn close_poll(&self, poll_id: i64) {
             let caller: AccountId = Self::env().caller();
 
-            if let Some(poll) = self.polls.get(poll_id) {
+            if let Some(mut poll) = self.get_poll(poll_id) {
                 if poll.author == caller {
-                    self.polls.remove(poll_id);
+                    poll.open = false;
                 }
             }
-        }
-
-        #[ink(message)]
-        pub fn display_poll(&self, poll_id: i64) -> Option<Poll> {
-            return self.polls.get(poll_id);
         }
 
         #[ink(message)]
@@ -104,12 +105,16 @@ mod tasknet {
         pub fn respond_to_poll(&mut self, poll_id: i64, response:String) {
             let caller = Self::env().caller();
 
-            if let Some(mut poll) = self.polls.get(&poll_id) {
+            if let Some(mut poll) = self.get_poll(poll_id) {
                 if !poll.participants.contains(&caller) {
                     poll.participants.push(caller);
                     poll.responses.push(response);
                 }
             }
+        }
+
+        fn get_poll(&self, poll_id: i64) -> Option<Poll> {
+            return self.polls.get(poll_id);
         }
 
         // #[ink(message)]
@@ -133,13 +138,11 @@ mod tasknet {
         pub fn tasknet_works() {
             let mut net: TaskNet = TaskNet::new();
 
+            net.create_user(String::from("jumbomeats"));
+            // net.create_user(String::from("Poop"));
+
             net.create_poll(
                 String::from("Flagged Comment: I like pokeman cards."),
-                String::from("Is this post harmful? (y/n)"),
-                1
-            );
-            net.create_poll(
-                String::from("Flagged Comment: Your mom is a whore"),
                 String::from("Is this post harmful? (y/n)"),
                 1
             );
@@ -149,6 +152,8 @@ mod tasknet {
             println!("Poll Title: {}", poll.title);
             println!("Description: {}", poll.description);
             println!("Reward: {} AZERO", poll.reward);
+
+
         }
     }
 }
