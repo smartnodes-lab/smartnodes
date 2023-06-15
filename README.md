@@ -1,13 +1,16 @@
 # TaskNet (Polls):
 
-## Use Cases
-- similar structure to an oracle network, but composed of a user-based polling system as opposed to aggregated API calls by computers
-- any automated task that requires human input can poll a group of people to decide what to do
-- networks for co-operative and competitive AI training, markets for models and datasets
-  -  on-demand API calls to these distributed AI systems for execution
+## Use Cases: A
+- similar structure to an oracle network, but instead of computers aggregating API calls, human are responding to calls from automated and/or decentralized systems.
+- could work for any automated task that requires human input (poll a group of people to decide what to do)
 - the moderation of online and real-world ecosystems (social media, online markets)
   -  the decentralized 'customer service' of the internet
 -  could serve as a marketplace for jobs as well
+
+- there will also be the option (potentially thru seperate network/smart contract) for co-operative/competitive AI training, as well as markets for models and datasets
+  -  distributed machine learning for large-scale datasets/models
+  -  on-demand API calls to these distributed AI models for execution (e.g. for an LLM-based helper-bot online)
+  -  cloud network architecture for machine learning execution in a distributed manner, negating the need for a centralized entity
 
 ## Polling System
 - poll is broadcasted to the network (i.e. question, voting, censuses...), then a random or filtered selection of users are pinged to respond to the call
