@@ -25,15 +25,6 @@ mod tasknet {
         // recommended_format: Option<String>,
     }
 
-    #[derive(scale::Decode, scale::Encode, Debug)]
-    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
-    pub struct User {
-        address: AccountId,
-        username: String,
-        descriptors: Vec<String>,
-        cv: Vec<String>
-    }
-
     #[derive(Debug, PartialEq, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum TaskNetError {
@@ -171,13 +162,7 @@ mod tasknet {
         //     }
         //     return user_polls;
         // }
-        //
-        // // Module for selecting key, value pairs denoted by String("Key: Value")
-        // let key_value: Vec<String> = descriptor.split(": ")
-        //     .map(|s| s.to_string())
-        //     .collect();
-        // let _key = &key_value[0];
-        // let _value = &key_value[1];
+
     }
 
     #[cfg(test)]

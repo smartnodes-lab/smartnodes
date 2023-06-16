@@ -1,6 +1,6 @@
 [package]
 name = "user"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["[mattjhawken] <[mattjhawken@gmail.com]>"]
 edition = "2021"
 
@@ -11,7 +11,7 @@ scale = { package = "parity-scale-codec", version = "3", default-features = fals
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
 
 [lib]
-path = "lib.rs"
+path = "./lib.rs"
 
 [features]
 default = ["std"]
