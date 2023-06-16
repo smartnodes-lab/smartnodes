@@ -1,12 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use self::user::User;
+
 #[ink::contract]
 mod user {
     use ink::prelude::vec::Vec;
 
     #[ink(storage)]
     pub struct User {
-        #[ink(topic)]
         address: AccountId,
         username: String,
         experience: Vec<String>,
@@ -63,14 +64,58 @@ mod user {
         }
 
         #[ink(message)]
-        pub fn remove_skill(&mut self, skill_ind: usize) {
+        pub fn remove_skill(&mut self, skills: Vec<String>) {
             let caller: AccountId = Self::env().caller();
 
             if self.address == caller {
-                for skill_ind in skill_inds {
-                    self.skills.remove(skill_ind);
+                for skill in skills {
+                    self.skills.retain(|item| item.eq(&skill));
                 }
             }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[ink::test]
+        pub fn user_works() {
+            let mut _user: User = User::new(
+                String::from("jumbomeats"),
+                Some(vec![
+                    String::from("created minecraft server with plugins")
+                ]),
+                Some(vec![
+                    String::from("servers")
+                ])
+            );
+
+            println!("{}", {_user.skills.get(0).unwrap()});
+
+            _user.add_skills(
+                vec![
+                    String::from("Rust"),
+                    String::from("ink!")
+                ]
+            );
+
+            for (ind, skill) in _user.skills.iter().enumerate() {
+                println!("{}", {_user.skills.get(ind).unwrap()});
+                println!("{}", { ind })
+            }
+
+            _user.remove_skill(
+                vec![
+                    String::from("Rust")
+                ]
+            );
+
+            for (ind, skill) in _user.skills.iter().enumerate() {
+                println!("{}", {_user.skills.get(ind).unwrap()});
+                println!("{}", { ind })
+            }
+
         }
     }
 }

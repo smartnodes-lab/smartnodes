@@ -1,6 +1,6 @@
-# TaskNet (Polls):
+# TaskNet/Brainstorm/Synergy/Synaptic:
 
-## Use Cases: A
+## Use Cases:
 - similar structure to an oracle network, but instead of computers aggregating API calls, human are responding to calls from automated and/or decentralized systems.
 - could work for any automated task that requires human input (poll a group of people to decide what to do)
 - the moderation of online and real-world ecosystems (social media, online markets)

@@ -5,6 +5,7 @@ mod tasknet {
     use ink::prelude::vec::Vec;
     use ink::storage::Mapping;
     use ink::prelude::string::String;
+    use user::User;
 
     #[derive(scale::Decode, scale::Encode, Debug)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
