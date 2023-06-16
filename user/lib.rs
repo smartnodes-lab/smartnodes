@@ -64,7 +64,7 @@ mod user {
         }
 
         #[ink(message)]
-        pub fn remove_skill(&mut self, skills: Vec<String>) {
+        pub fn remove_skills(&mut self, skills: Vec<String>) {
             let caller: AccountId = Self::env().caller();
 
             if self.address == caller {
@@ -105,7 +105,7 @@ mod user {
                 println!("{}", { ind })
             }
 
-            _user.remove_skill(
+            _user.remove_skills(
                 vec![
                     String::from("Rust")
                 ]
