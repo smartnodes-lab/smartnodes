@@ -1,4 +1,4 @@
-# TaskNet/Brainstorm/Synergy/Synaptic:
+# Framework
 
 ## Use Cases:
 - similar structure to an oracle network, but instead of computers aggregating API calls, human are responding to calls from automated and/or decentralized systems.
