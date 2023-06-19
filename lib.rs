@@ -7,6 +7,14 @@ mod tasknet {
     use ink::prelude::string::String;
     use user::User;
 
+    #[derive(Debug, PartialEq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+    pub enum TaskNetError {
+        UserAlreadyExists,
+        UserAlreadyResponded,
+        TaskRewardTooLow
+    }
+
     #[derive(scale::Decode, scale::Encode, Debug)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
     pub struct Task {
@@ -24,14 +32,6 @@ mod tasknet {
         // max_votes: Option<u32>,
         // cost_per_vote: Balance,
         // recommended_format: Option<String>,
-    }
-
-    #[derive(Debug, PartialEq, scale::Encode, scale::Decode)]
-    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-    pub enum TaskNetError {
-        UserAlreadyExists,
-        UserAlreadyResponded,
-        TaskRewardTooLow
     }
 
     #[ink(storage)]
@@ -53,12 +53,11 @@ mod tasknet {
             }
         }
 
-        #[ink(message)]
+        #[ink(message, payable)]
         pub fn create_task(
             &mut self,
             title: String,
             description: String,
-            reward: Balance,
             // reward_distribution: bool
         ) {
             let author: AccountId = Self::env().caller();
@@ -69,7 +68,7 @@ mod tasknet {
                     author,
                     title,
                     description,
-                    reward,
+                    reward: self.env().transfered_value(),
                     responses: Vec::new(),
                     participants: Vec::new(),
                     open: true,

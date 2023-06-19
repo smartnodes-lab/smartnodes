@@ -1,16 +1,20 @@
 # Framework
 
-## Use Cases:
-- similar structure to an oracle network, but instead of computers aggregating API calls, human are responding to calls from automated and/or decentralized systems.
-- could work for any automated task that requires human input (poll a group of people to decide what to do)
-- the moderation of online and real-world ecosystems (social media, online markets)
-  -  the decentralized 'customer service' of the internet
--  could serve as a marketplace for jobs as well
-
-- there will also be the option (potentially thru seperate network/smart contract) for co-operative/competitive AI training, as well as markets for models and datasets
-  -  distributed machine learning for large-scale datasets/models
-  -  on-demand API calls to these distributed AI models for execution (e.g. for an LLM-based helper-bot online)
-  -  cloud network architecture for machine learning execution in a distributed manner, negating the need for a centralized entity
+## Main Concept:
+- a seamless UI and multiple APIs that connect users to a competitive marketplace of problem solvers
+- allows automated systems to manage problems using human and collective intelligence, whenever
+  human input is required
+- servers as a marketplace for jobs, opinions, and other tasks
+- May require seperate contracts for each use-case implementation, all task contracts and users could interact 
+  through one main network contract. 
+- Use-cases include but are not limited to: 
+  - the moderation of online and real-world ecosystems (social media, insurance)
+  - on-demand AI model execution
+  - jobs/tasks that can be done or verified over the internet (coding problems, writing)
+  - homework help
+- there will also be the option for co-operative/competitive AI training, as well as markets for models and datasets
+  -  cloud network architecture for distributed machine learning execution
+  -  on-demand API calls to these models for execution (e.g. for an LLM-based helper-bot online)
 
 ## Polling System
 - poll is broadcasted to the network (i.e. question, voting, censuses...), then a random or filtered selection of users are pinged to respond to the call
