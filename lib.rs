@@ -22,13 +22,10 @@ mod tasknet {
         title: String,
         description: String,
         reward: Balance,
-        responses: Vec<String>,
-        participants: Vec<AccountId>,
-        open: bool,
-
+        responses: Mapping<AccountId, String>,
+        // open: bool,
         // true: distributed among voters, false: random single distribution
         // reward_distribution: bool,
-
         // max_votes: Option<u32>,
         // cost_per_vote: Balance,
         // recommended_format: Option<String>,
@@ -69,9 +66,9 @@ mod tasknet {
                     title,
                     description,
                     reward: self.env().transfered_value(),
-                    responses: Vec::new(),
-                    participants: Vec::new(),
-                    open: true,
+                    responses: Mappin::new(),
+                    // participants: Vec::new(),
+                    // open: true,
                     // reward_distribution
                 };
 
