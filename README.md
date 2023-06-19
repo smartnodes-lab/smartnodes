@@ -2,6 +2,8 @@
 
 ## Main Concept
 
+- An oracle network that integrates participation and reputation metrics to allow for a broader range of computation and 
+  tasks to be addressed
 - A seamless UI and multiple APIs that connect users to a competitive marketplace of problem solvers
 - Allows automated systems to manage problems using human and collective intelligence, whenever
   human input is required
