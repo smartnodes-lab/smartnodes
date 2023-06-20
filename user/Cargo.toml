@@ -1,8 +1,8 @@
 [package]
 name = "user"
-version = "0.1.1"
-authors = ["[mattjhawken] <[mattjhawken@gmail.com]>"]
-edition = "2021"
+version = "0.2.0"
+authors = ["[mattjhawken] <[mattjhawken@proton.me]>"]
+edition = "2023"
 
 [dependencies]
 ink = { version = "4.2.0", default-features = false }
@@ -11,7 +11,7 @@ scale = { package = "parity-scale-codec", version = "3", default-features = fals
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
 
 [lib]
-path = "./lib.rs"
+path = "lib.rs"
 
 [features]
 default = ["std"]
@@ -20,4 +20,5 @@ std = [
     "scale/std",
     "scale-info/std",
 ]
+
 ink-as-dependency = []

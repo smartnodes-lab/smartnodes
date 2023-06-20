@@ -1,17 +1,17 @@
 [package]
-name = "tasknet"
-version = "0.1.1"
-authors = ["[mattjhawken] <[mattjhawken@gmail.com]>"]
-edition = "2021"
+name = "framework"
+version = "0.2.0"
+authors = ["[mattjhawken] <[mattjhawken@proton.me]>"]
+edition = "2023"
 
 [dependencies]
-ink = { version = "4.0.0-beta", default-features = false }
+ink = { version = "4.2.0", default-features = false }
 
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.3", default-features = false, features = ["derive"], optional = true }
 
 [lib]
-name = "tasknet"
+name = "framework"
 path = "lib.rs"
 
 [features]
