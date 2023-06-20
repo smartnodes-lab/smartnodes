@@ -1,15 +1,12 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-//     #[derive(scale::Decode, scale::Encode, Debug)]
-//     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
-
 #[ink::contract]
 mod framework {
     use ink::prelude::vec::Vec;
     use ink::storage::Mapping;
     use ink::prelude::string::String;
     use user::User;
-    use job::Job;
+    use task::Task;
 
     #[derive(Debug, PartialEq, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
@@ -21,19 +18,60 @@ mod framework {
 
     // Introduce the SubNet architecture, each must have the ability to deploy and remove tasks
     pub trait SubNet {
-        fn create(&mut self, title: String, description: String);
+        fn create(
+            &mut self,
+            title: String,
+            description: String,
+            reward_distribution: bool,
+            filters: Option<Mapping<i8, String>>,
+            max_participants: Option<i32>,
+            required_format: Option<String>
+        );
         fn close(&self, task_id: i64);
         fn dispute(&self, task_id: i64);
         fn respond(&self, task_id: i64);
     }
 
+    #[derive(scale::Decode, scale::Encode, Debug)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
+    pub struct TaskNet {
+        tasks: Mapping<i64, Task>,
+        next_task_id: i64
+    }
+
+    impl SubNet for TaskNet {
+        fn create(
+            &mut self,
+            title: String,
+            description: String,
+            reward_distribution: bool,
+            filters: Option<Mapping<i8, String>>,
+            max_participants: Option<i32>,
+            required_format: Option<String>
+        ) {
+            let author: AccountId = Self::env().caller();
+
+            let task: Task = Task {
+                author,
+                title,
+                description,
+                reward: self.env().transfered_value(),
+                responses: Mappin::new(),
+                // participants: Vec::new(),
+                // open: true,
+                // reward_distribution
+            };
+
+            // Insert task to contract and update task_id
+            self.tasks.insert(self.next_task_id, &task);
+            self.next_task_id += 1;
+        }
+    }
+
     #[ink(storage)]
     pub struct Framework {
-        // Declaring TaskNet environment (storage variables for contract)
-        next_task_id: i64,
-        tasknet: Mapping<i64, Task>,
-        jobnet: Mapping<i64, Job>,
-        mlnet: Mapping<i64, ML>,
+        task_net: TaskNet,
+        // ml_net: Mapping<i64, ML>,
         users: Mapping<AccountId, User>
     }
 
@@ -43,8 +81,7 @@ mod framework {
             // Instantiate TaskNet environment
             Self {
                 next_task_id: 0,
-                tasks: Mapping::new(),
-                users: Mapping::new()
+                tasks: Mapping::new()
             }
         }
 

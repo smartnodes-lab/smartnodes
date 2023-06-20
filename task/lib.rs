@@ -1,15 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use self::job::Job;
+pub use self::task::Task;
 
 #[ink::contract]
-mod job {
+mod task {
 
     use ink::storage::Mapping;
     use ink::prelude::string::String;
 
     #[ink(storage)]
-    pub struct Job {
+    pub struct Task {
         author: AccountId,
         title: String,
         description: String,
@@ -22,7 +22,7 @@ mod job {
         open: bool
     }
 
-    impl Job {
+    impl Task {
         #[ink(constructor)]
         pub fn new(
             _title: String,
@@ -35,7 +35,7 @@ mod job {
         ) -> Self {
             let caller = Self::env().caller();
 
-            let mut job = Self {
+            let mut task = Self {
                 author: caller,
                 title: _title,
                 description: _description,
@@ -50,18 +50,18 @@ mod job {
 
             if let Some(_filters) = _filters {
                 for filter in _filters {
-                    job.filters.push(filter);
+                    task.filters.push(filter);
                 }
             }
 
             if let Some(_max_responses) = _max_responses {
                 if _max_responses > 0 {
-                    job.max_responses = _max_responses;
+                    task.max_responses = _max_responses;
                 }
             }
 
             if let Some(_required_format) = _required_format {
-                job.required_format = _required_format;
+                task.required_format = _required_format;
             }
         }
     }

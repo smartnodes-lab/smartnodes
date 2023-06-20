@@ -1,5 +1,5 @@
 [package]
-name = "job"
+name = "task"
 version = "0.2.0"
 authors = ["[mattjhawken] <[mattjhawken@proton.me]>"]
 edition = "2023"

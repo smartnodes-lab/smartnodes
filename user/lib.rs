@@ -12,7 +12,7 @@ mod user {
         username: String,
         experience: Vec<String>,
         skills: Vec<String>,
-        // history: Vec<String> // potentially a hash of a completed job
+        // history: Vec<String> // potentially a hash of a completed task
     }
 
     impl User {

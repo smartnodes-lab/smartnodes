@@ -7,7 +7,7 @@
       <excludeFolder url="file://$MODULE_DIR$/experimental/poll_market/target" />
       <excludeFolder url="file://$MODULE_DIR$/user/target" />
       <excludeFolder url="file://$MODULE_DIR$/ml/target" />
-      <excludeFolder url="file://$MODULE_DIR$/job/target" />
+      <excludeFolder url="file://$MODULE_DIR$/task/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
