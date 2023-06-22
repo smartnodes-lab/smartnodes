@@ -65,7 +65,7 @@ mod ainet {
         /// Imports all the definitions from the outer scope so we can use them here.
         use super::*;
 
-        /// We test if the default constructor does its task.
+        /// We test if the default constructor does its tasknet.
         #[ink::test]
         fn default_works() {
             let ml = Ml::default();

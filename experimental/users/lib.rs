@@ -1,25 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
+// pub use self::users::Users;
+
 #[ink::contract]
-mod framework {
-    // use ink::storage::Mapping;
-    use ink::prelude::{
-        string::String,
-        vec::Vec
-    };
-    use ink::storage::Lazy;
-    use tasknet::TaskNetRef;
-    use ink::TypeInfo;
+mod users {
+    use super::*;
+    use ink::prelude::{string::String, vec::Vec};
 
-    #[derive(Debug, PartialEq, scale::Encode, scale::Decode)]
-    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-    pub enum FrameworkError {
-        UsernameTaken,
-        UserAlreadyResponded,
-        TaskRewardTooLow
-    }
-
-    #[derive(scale::Decode, scale::Encode, Debug, Clone)]
+    #[derive(scale::Decode, scale::Encode, Debug)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
     pub struct User {
         address: AccountId,
@@ -45,28 +33,6 @@ mod framework {
         }
     }
 
-    #[ink(storage)]
-    pub struct Framework {
-        users: Vec<User>,
-        next_user_id: i64,
-        task_net: TaskNetRef,
-        // ml_net: Mapping<i64, ML>,
-    }
-
-    impl Framework {
-        #[ink(constructor)]
-        pub fn new(tasknet_hash: Hash) -> Self {
-            let tasknet = TaskNetRef::new()
-                .code_hash(tasknet_hash)
-                .endowment(0)
-                .salt_bytes([0xDE, 0xAD, 0xBE, 0xEF])
-                .instantiate();;
-            Self {
-                users: Vec::new(),
-                next_user_id: 0,
-                task_net: tasknet
-            }
-        }
 
         #[ink(message)]
         pub fn create_user(
@@ -106,19 +72,6 @@ mod framework {
                 // return Err(FrameworkError::UserAlreadyExists);
             }
         }
-
-        #[ink(message)]
-        pub fn get_user(&self, username: String) -> Option<User> {
-            let mut user: Option<User> = None;
-
-            for _user in self.users.iter() {
-                if _user.username == username {
-                    user = Some(_user.clone());
-                }
-            }
-
-            user
-        }
     }
 
     #[cfg(test)]
@@ -126,38 +79,21 @@ mod framework {
         use super::*;
 
         #[ink::test]
-        pub fn framework_test() {
-            let mut contract: Framework = Framework::new();
+        fn create_user() {
+            // Arrange
+            let mut contract = Users::new();
             let caller: AccountId = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>().alice;
             let username = String::from("Alice");
             let experience = vec![String::from("Software Developer"), String::from("Data Analyst")];
             let skills = vec![
                 String::from("Rust"),
                 String::from("Python"),
-                String::from("SQL")
-            ];
+                String::from("SQL")];
 
-            contract.create_user(
-                username.clone(),
-                experience.clone(),
-                skills.clone()
-            );
-
-            let user = contract.get_user(username).unwrap();
-
-            println!("Username: {}", user.username);
-            assert_eq!(caller, user.address);
+            contract.create_user(username.clone(), experience.clone(), skills.clone());
+            // let users = contract.get_user(caller);
+            //
+            // assert_eq!(users, Some(User { username, experience, skills }));
         }
     }
 }
-            // contract.create_task(
-            //     String::from("Lens Network Flagged Comment: Your mom's a wanker"),
-            //     String::from("Was this post harmful? (y/n)"),
-            //     1,
-            // );
-            //
-            // let task = contract.get_task(0).unwrap();
-
-            // println!("tasknet Title: {}", framework.users);
-            // println!("Description: {}");
-            // println!("Reward: {} AZERO", framework.users.get());

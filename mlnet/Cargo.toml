@@ -2,7 +2,7 @@
 name = "ml"
 version = "0.2.0"
 authors = ["[mattjhawken] <[mattjhawken@proton.me]>"]
-edition = "2023"
+edition = "2021"
 
 [dependencies]
 ink = { version = "4.2.0", default-features = false }

@@ -2,7 +2,7 @@
 name = "framework"
 version = "0.2.0"
 authors = ["[mattjhawken] <[mattjhawken@proton.me]>"]
-edition = "2023"
+edition = "2021"
 
 [dependencies]
 ink = { version = "4.2.0", default-features = false }
@@ -10,10 +10,8 @@ ink = { version = "4.2.0", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.3", default-features = false, features = ["derive"], optional = true }
 
-task = { path = "task", default-features = false, features = ["ink-as-dependency"] }
-user = { path = "user", default-feature = false, features = ["ink-as-dependency"] }
-
-#ml = { path = "ml", default-features = false, features = ["ink-as-dependency"] }
+tasknet = { path = "tasknet", default-features = false, features = ["ink-as-dependency"] }
+#mlnet = { path = "mlnet", default-features = false, features = ["ink-as-dependency"] }
 
 [lib]
 name = "framework"
@@ -25,5 +23,6 @@ std = [
     "ink/std",
     "scale/std",
     "scale-info/std",
+    "tasknet/std"
 ]
 ink-as-dependency = []
