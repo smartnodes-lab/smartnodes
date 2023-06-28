@@ -113,7 +113,7 @@ mod tasknet {
         // pub fn get_user_tasks(&self) -> Vec<tasknet> {
         //     let caller = Self::env().caller();
         //     let mut user_tasks = Vec::new();
-        //     for tasknet in self.task {
+        //     for tasknet in self.traits {
         //         if tasknet.author == caller {
         //             user_tasks.push(tasknet.clone());
         //         }

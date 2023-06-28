@@ -9,6 +9,12 @@ mod ml_task {
     };
     use task::Task;
 
+    /// Allows vari-dimensional layers
+    pub enum Layer {
+        DimOne(Vec<i64>),
+        DimTwo(Vec<Vec<i64>>)
+    }
+
     #[ink(storage)]
     pub struct MLTask {
         author: AccountId,
@@ -33,17 +39,17 @@ mod ml_task {
                 author: Self::env().caller(),
                 reward,
                 reward_distribution,
+                submissions: Mapping::new(),
+                open: true,
                 // participation: Mapping::new(),
                 // filters,
                 // max_responses,
                 // formatting_tips,
-                submissions: Mapping:new(),
-                open: true
             }
         }
 
         #[ink(message)]
-        pub fn submit_y(&mut self, y_pred: Vec<Vec<i64>>) {
+        pub fn submit_y(&mut self, y_pred: Layer) {
             unimplemented!()
         }
 
@@ -81,8 +87,8 @@ mod ml_task {
 
         #[ink::test]
         pub fn ml_works() {
-            let mut task: ML = ML::new(
-                1,
+            let mut task: MLTask = MLTask::new(
+                0,
                 true
             );
         }

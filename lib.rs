@@ -129,7 +129,7 @@ mod framework {
             //     1,
             // );
             //
-            // let task = contract.get_task(0).unwrap();
+            // let traits = contract.get_task(0).unwrap();
 
             // println!("tasknet Title: {}", framework.users);
             // println!("Description: {}");

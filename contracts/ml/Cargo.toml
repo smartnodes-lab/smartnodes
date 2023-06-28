@@ -10,7 +10,7 @@ ink = { version = "4.2.1", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.3", default-features = false, features = ["derive"], optional = true }
 
-task = { path = "../../traits/task", default-features = false }
+task = { path = "../../traits", default-features = false }
 
 [lib]
 path = "lib.rs"
