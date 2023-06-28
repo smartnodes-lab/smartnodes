@@ -5,9 +5,10 @@
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/contracts/poll/target" />
       <excludeFolder url="file://$MODULE_DIR$/experimental/poll_market/target" />
-      <excludeFolder url="file://$MODULE_DIR$/tasknet/target" />
-      <excludeFolder url="file://$MODULE_DIR$/mlnet/target" />
       <excludeFolder url="file://$MODULE_DIR$/experimental/users/target" />
+      <excludeFolder url="file://$MODULE_DIR$/experimental/tasknet/target" />
+      <excludeFolder url="file://$MODULE_DIR$/traits/task/target" />
+      <excludeFolder url="file://$MODULE_DIR$/contracts/ml/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

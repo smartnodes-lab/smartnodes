@@ -1,14 +1,16 @@
 [package]
-name = "ml"
-version = "0.2.0"
+name = "ml-task"
+version = "0.2.2"
 authors = ["[mattjhawken] <[mattjhawken@proton.me]>"]
 edition = "2021"
 
 [dependencies]
-ink = { version = "4.2.0", default-features = false }
+ink = { version = "4.2.1", default-features = false }
 
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.3", default-features = false, features = ["derive"], optional = true }
+
+task = { path = "../../traits/task", default-features = false }
 
 [lib]
 path = "lib.rs"
@@ -19,5 +21,7 @@ std = [
     "ink/std",
     "scale/std",
     "scale-info/std",
+    "task/std"
 ]
+
 ink-as-dependency = []

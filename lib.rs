@@ -2,19 +2,16 @@
 
 #[ink::contract]
 mod framework {
-    // use ink::storage::Mapping;
+    use ink::storage::Mapping;
     use ink::prelude::{
         string::String,
         vec::Vec
     };
-    use ink::storage::Lazy;
-    use tasknet::TaskNetRef;
-    use ink::TypeInfo;
 
     #[derive(Debug, PartialEq, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum FrameworkError {
-        UsernameTaken,
+        UserTaken(String),
         UserAlreadyResponded,
         TaskRewardTooLow
     }
@@ -24,23 +21,23 @@ mod framework {
     pub struct User {
         address: AccountId,
         username: String,
-        experience: Vec<String>,
         skills: Vec<String>,
-        // history: Vec<String> // potentially a hash of a completed tasknet
+        history: Vec<String>, // potentially a hash of a completed tasknet
+        locked_balance: Balance,
     }
 
     impl User {
         pub fn new(
             address: AccountId,
             username: String,
-            experience: Vec<String>,
-            skills: Vec<String>
+            skills: Vec<String>,
         ) -> Self {
             Self {
                 address,
                 username,
-                experience,
-                skills
+                skills,
+                history: Vec::new(),
+                locked_balance: 0
             }
         }
     }
@@ -49,33 +46,30 @@ mod framework {
     pub struct Framework {
         users: Vec<User>,
         next_user_id: i64,
-        task_net: TaskNetRef,
-        // ml_net: Mapping<i64, ML>,
+        // ml_net: MLNet,
     }
 
     impl Framework {
         #[ink(constructor)]
-        pub fn new(tasknet_hash: Hash) -> Self {
-            let tasknet = TaskNetRef::new()
-                .code_hash(tasknet_hash)
-                .endowment(0)
-                .salt_bytes([0xDE, 0xAD, 0xBE, 0xEF])
-                .instantiate();;
+        pub fn new() -> Self {
+            // let ml_net = MLNet::new()
+            //     .code_hash(tasknet_hash)
+            //     .endowment(0)
+            //     .salt_bytes([0xDE, 0xAD, 0xBE, 0xEF])
+            //     .instantiate();
             Self {
                 users: Vec::new(),
                 next_user_id: 0,
-                task_net: tasknet
             }
         }
 
-        #[ink(message)]
+        // Payment locking functionality likely broken
+        #[ink(message, payable)]
         pub fn create_user(
-            &mut self,
-            username: String,
-            experience: Vec<String>,
-            skills: Vec<String>
-        ) {
+            &mut self, username: String, skills: Vec<String>
+        ) -> Result<(), FrameworkError> {
             let caller: AccountId = Self::env().caller();
+            let locked_amount = self.env().transferred_value();
 
             // Create users if address isn't linked to an account
             if !self.users.iter().any(|user| user.username == username) {
@@ -83,41 +77,33 @@ mod framework {
                     caller,
                     username,
                     Vec::<String>::with_capacity(10),
-                    Vec::<String>::with_capacity(10),
                 );
-
-                // Push experiences to users if specified
-                for i in 0..experience.len().min(user.experience.capacity()) {
-                    user.experience.push(experience.get(i)
-                                    .cloned()
-                                    .unwrap_or_else(|| String::new()));
-                }
 
                 // Push skills to users if specified
                 for i in 0..skills.len().min(user.skills.capacity()) {
                     user.skills.push(skills.get(i)
-                                    .cloned()
-                                    .unwrap_or_else(|| String::new()));
+                        .cloned()
+                        .unwrap_or_else(|| String::new())
+                    );
                 }
+
+                // Add value of attached balance
+                self.env().transfer(caller, user.locked_balance);
 
                 // Add users to contract
                 self.users.push(user);
+
+                Ok(())
             } else {
-                // return Err(FrameworkError::UserAlreadyExists);
+                Err(FrameworkError::UserTaken(username))
             }
         }
 
         #[ink(message)]
-        pub fn get_user(&self, username: String) -> Option<User> {
-            let mut user: Option<User> = None;
-
-            for _user in self.users.iter() {
-                if _user.username == username {
-                    user = Some(_user.clone());
-                }
-            }
-
-            user
+        pub fn create_job(
+            &mut self, reward: Balance, distribution: bool, filters: Vec<String>, formatting: String
+        ) {
+            unimplemented!()
         }
     }
 
@@ -128,25 +114,12 @@ mod framework {
         #[ink::test]
         pub fn framework_test() {
             let mut contract: Framework = Framework::new();
-            let caller: AccountId = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>().alice;
-            let username = String::from("Alice");
-            let experience = vec![String::from("Software Developer"), String::from("Data Analyst")];
-            let skills = vec![
-                String::from("Rust"),
-                String::from("Python"),
-                String::from("SQL")
-            ];
 
+            // Test user creation
             contract.create_user(
-                username.clone(),
-                experience.clone(),
-                skills.clone()
+                String::from("jumbomeats"),
+                Vec::new()
             );
-
-            let user = contract.get_user(username).unwrap();
-
-            println!("Username: {}", user.username);
-            assert_eq!(caller, user.address);
         }
     }
 }

@@ -5,10 +5,7 @@ pub use self::tasknet::TaskNetRef;
 #[ink::contract]
 mod tasknet {
     use ink::prelude::vec::Vec;
-    use ink::storage::{
-        Mapping,
-        traits::ManualKey
-    };
+    use ink::storage::Mapping;
     use ink::prelude::string::String;
 
     #[derive(scale::Decode, scale::Encode, Debug)]
@@ -116,7 +113,7 @@ mod tasknet {
         // pub fn get_user_tasks(&self) -> Vec<tasknet> {
         //     let caller = Self::env().caller();
         //     let mut user_tasks = Vec::new();
-        //     for tasknet in self.tasks {
+        //     for tasknet in self.task {
         //         if tasknet.author == caller {
         //             user_tasks.push(tasknet.clone());
         //         }
