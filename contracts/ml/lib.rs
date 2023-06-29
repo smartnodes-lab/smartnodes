@@ -4,26 +4,43 @@
 mod ml_task {
     use ink::storage::Mapping;
     use ink::prelude::{
-        string::String,
+        // string::String,
         vec::Vec
     };
     use task::Task;
 
     /// Allows vari-dimensional layers
+    #[derive(scale::Decode, scale::Encode, Debug, Clone)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
     pub enum Layer {
         DimOne(Vec<i64>),
         DimTwo(Vec<Vec<i64>>)
+    }
+
+    #[derive(scale::Decode, scale::Encode, Debug, Clone)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
+    pub struct YMap {
+        y_map: Vec<Layer>
+    }
+
+    impl YMap {
+        pub fn new() -> Self {
+            Self {
+                y_map: Vec::new()
+            }
+        }
     }
 
     #[ink(storage)]
     pub struct MLTask {
         author: AccountId,
         reward: Balance,
+        kind: i8,
         reward_distribution: bool,
-        submissions: Mapping<i64, i64>,
+        open: bool,
+        y_map: Mapping<AccountId, YMap>
         // max_responses: i8, // interchangable with max_block_len?
         // formatting_tips: String, // can be used to justify disputes
-        open: bool
     }
 
     impl MLTask {
@@ -31,16 +48,18 @@ mod ml_task {
         pub fn new(
             reward: Balance,
             reward_distribution: bool,
+            kind: i8,
             // filters: Vec<String>,
             // max_responses: i8,
-            // formatting_tips: String,
+            // formatting_tips: String
         ) -> Self {
             Self {
                 author: Self::env().caller(),
                 reward,
                 reward_distribution,
-                submissions: Mapping::new(),
+                kind,
                 open: true,
+                y_map: Mapping::new()
                 // participation: Mapping::new(),
                 // filters,
                 // max_responses,
@@ -53,8 +72,7 @@ mod ml_task {
             unimplemented!()
         }
 
-        #[ink(message)]
-        pub fn calculate_loss(&mut self, y_pred: Vec<Vec<i64>>) {
+        fn calculate_loss(&mut self, y_pred: Layer) {
             unimplemented!()
         }
     }
@@ -89,7 +107,8 @@ mod ml_task {
         pub fn ml_works() {
             let mut task: MLTask = MLTask::new(
                 0,
-                true
+                true,
+                0
             );
         }
     }
