@@ -122,15 +122,5 @@ mod framework {
             );
         }
     }
-}
-            // contract.create_task(
-            //     String::from("Lens Network Flagged Comment: Your mom's a wanker"),
-            //     String::from("Was this post harmful? (y/n)"),
-            //     1,
-            // );
-            //
-            // let traits = contract.get_task(0).unwrap();
+}mess
 
-            // println!("tasknet Title: {}", framework.users);
-            // println!("Description: {}");
-            // println!("Reward: {} AZERO", framework.users.get());

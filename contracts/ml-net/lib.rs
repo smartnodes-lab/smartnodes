@@ -21,24 +21,16 @@ mod ml_net {
 
     #[derive(scale::Decode, scale::Encode, Debug, Clone)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
-    pub struct YVec {
-        y_vec: Vec<Layer>
+    pub struct LayerVec {
+        layer_vec: Vec<Layer>
     }
 
-    impl YVec {
+    impl LayerVec {
         pub fn new() -> Self {
             Self {
-                y_vec: Vec::new()
+                layer_vec: Vec::new()
             }
         }
-    }
-
-    #[derive(Debug, PartialEq, scale::Encode, scale::Decode)]
-    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-    pub enum MLNetError {
-        UserTaken,
-        UserAlreadyResponded,
-        TaskRewardTooLow
     }
 
     #[ink(storage)]
@@ -48,8 +40,8 @@ mod ml_net {
         kind: i8,
         reward_distribution: bool,
         open: bool,
-        network_map: Mapping<AccountId, YVec>,
-        output_dim: i8,
+        network_map: Mapping<AccountId, LayerVec>,
+        layer_dims: Vec<i64>,
         // max_responses: i8, // interchangable with max_block_len?
         // formatting_tips: String, // can be used to justify disputes
     }
@@ -59,18 +51,38 @@ mod ml_net {
         pub fn new(
             reward: Balance,
             reward_distribution: bool,
-            kind: i8,
-            // filters: Vec<String>,
+            _kind: i8,
+            layer_dims: Vec<i64>,
             // max_responses: i8,
             // formatting_tips: String
         ) -> Self {
+            let specified_layers: usize = layer_dims.capacity();
+            let caller: AccountId = Self::env().caller();
+
+            // Enforce network structure depending on kind: 0: bloom, 1: cascade, 2: ensemble
+            if _kind == 0 || _kind == 2 {
+                if !specified_layers == 2 {
+                    ink::env::debug_println!("Invalid network format for given kind!");
+                    Self::env().terminate_contract(caller);
+                }
+            } else if _kind == 1 {
+                if specified_layers <= 2 {
+                    ink::env::debug_println!("Invalid network format for given kind!");
+                    Self::env().terminate_contract(caller);
+                }
+            } else {
+                ink::env::debug_println!("Invalid network kind!");
+                Self::env().terminate_contract(caller);
+            }
+
             Self {
                 author: Self::env().caller(),
                 reward,
                 reward_distribution,
-                kind,
+                kind: _kind,
                 open: true,
-                network_map: Mapping::new()
+                network_map: Mapping::new(),
+                layer_dims
                 // participation: Mapping::new(),
                 // filters,
                 // max_responses,
@@ -79,16 +91,17 @@ mod ml_net {
         }
 
         #[ink(message)]
-        pub fn submit_y(&mut self, y_pred: Layer) {
+        pub fn submit_y(&mut self, y_ind: i64, y_pred: Layer) {
             let caller: AccountId = Self::env().caller();
 
             if self.network_map.contains(&caller) {
-                if let Some(mut y_vec) = self.network_map.get(&caller) {
-                    y_vec.y_vec.push(y_pred);
+                if let Some(mut layer_vec) = self.network_map.get(&caller) {
+                    layer_vec.layer_vec.push(y_pred);
                 }
+            } else {
+                ink::env::debug_println!("User not found in network!");
+                Self::env().terminate_contract(caller);
             }
-
-
         }
 
         fn calculate_loss(&mut self, y_pred: Layer) {
@@ -127,12 +140,12 @@ mod ml_net {
             let mut net: MLNet = MLNet::new(
                 0,
                 true,
-                0
+                0,
+                Vec::new()
             );
 
             let layer = Layer::DimOne(Vec::with_capacity(10));
-            net.submit_y(layer);
+            net.submit_y(10, layer);
         }
     }
-
 }
