@@ -1,7 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
+use ml_net::MLNetRef;
+
 #[ink::contract]
-mod ml_task {
+mod ml_net {
     use ink::storage::Mapping;
     use ink::prelude::{
         // string::String,
@@ -19,31 +21,40 @@ mod ml_task {
 
     #[derive(scale::Decode, scale::Encode, Debug, Clone)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
-    pub struct YMap {
-        y_map: Vec<Layer>
+    pub struct YVec {
+        y_vec: Vec<Layer>
     }
 
-    impl YMap {
+    impl YVec {
         pub fn new() -> Self {
             Self {
-                y_map: Vec::new()
+                y_vec: Vec::new()
             }
         }
     }
 
+    #[derive(Debug, PartialEq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+    pub enum MLNetError {
+        UserTaken,
+        UserAlreadyResponded,
+        TaskRewardTooLow
+    }
+
     #[ink(storage)]
-    pub struct MLTask {
+    pub struct MLNet {
         author: AccountId,
         reward: Balance,
         kind: i8,
         reward_distribution: bool,
         open: bool,
-        y_map: Mapping<AccountId, YMap>
+        network_map: Mapping<AccountId, YVec>,
+        output_dim: i8,
         // max_responses: i8, // interchangable with max_block_len?
         // formatting_tips: String, // can be used to justify disputes
     }
 
-    impl MLTask {
+    impl MLNet {
         #[ink(constructor)]
         pub fn new(
             reward: Balance,
@@ -59,7 +70,7 @@ mod ml_task {
                 reward_distribution,
                 kind,
                 open: true,
-                y_map: Mapping::new()
+                network_map: Mapping::new()
                 // participation: Mapping::new(),
                 // filters,
                 // max_responses,
@@ -69,7 +80,15 @@ mod ml_task {
 
         #[ink(message)]
         pub fn submit_y(&mut self, y_pred: Layer) {
-            unimplemented!()
+            let caller: AccountId = Self::env().caller();
+
+            if self.network_map.contains(&caller) {
+                if let Some(mut y_vec) = self.network_map.get(&caller) {
+                    y_vec.y_vec.push(y_pred);
+                }
+            }
+
+
         }
 
         fn calculate_loss(&mut self, y_pred: Layer) {
@@ -77,7 +96,7 @@ mod ml_task {
         }
     }
 
-    impl Task for MLTask {
+    impl Task for MLNet {
         #[ink(message)]
         fn respond(&mut self) {
             unimplemented!()
@@ -105,11 +124,14 @@ mod ml_task {
 
         #[ink::test]
         pub fn ml_works() {
-            let mut task: MLTask = MLTask::new(
+            let mut net: MLNet = MLNet::new(
                 0,
                 true,
                 0
             );
+
+            let layer = Layer::DimOne(Vec::with_capacity(10));
+            net.submit_y(layer);
         }
     }
 
