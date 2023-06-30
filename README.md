@@ -44,7 +44,7 @@
 
 ## Preventing Abuse
 
-- pay to mint a user token (user smart contract)
-- lock payment for work
-- repuation / score for jobs
-- users can dispute through a reporting system (disputed poll is fed back to the network to be voted upon again)
+- socket stream along side blockchain for fast data transfer, proofs can be prioritized on-chain
+- repuation can be a score provided by the users, automated reputation based on accepted solutions / majority vote for tasks,
+  and decreasing loss / increased accuracy over time, tasks completed
+- users can dispute through a reporting system (disputed poll is fed back to the network or a seperate dispute network)
