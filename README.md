@@ -32,13 +32,23 @@
 - co-operative and competitive AI training, as well as markets for models and datasets
   -  cloud network architecture for distributed machine learning execution
   -  on-demand API calls to these models for execution (e.g. for an LLM-based helper-bot online)
-- Types of ML-Tasks:
+  
+- types of ML-Tasks:
   - **bloom**: concurrent random initialized weights
     - layer_dims: input, output
+    - workflow: pull data (py) -> model forward pass -> loss -> model backward pass -> update
   - **cascade**: models combine to form one super-model
     - layer_dims: input, fully connected layer(s), output
+    - workflow: pull data from source (py) -> model forward pass -> loss -> model backward pass -> update
   - **ensemble**: multiple unique models being trained/executed and provided to the user
     - layer_dims: input, output
+  - **execute**: execution of a specific model
+    - layer_dims: all dims
+  
+- types of ML-Users:
+  - **sensory**: takes input data and feeds it to another user
+  - **interneuron**: takes user data and feeds it to another user (abstract)
+  - **integrate**: combine previous (or no) data to an output whose loss can be calculated
 
 ## Users
 
