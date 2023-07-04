@@ -36,10 +36,10 @@
 - types of ML-Tasks:
   - **bloom**: concurrent random initialized weights
     - layer_dims: input, output
-    - workflow: pull data (py) -> model forward pass -> loss -> model backward pass -> update
+    - workflow: pull data -> model forward pass -> loss -> model backward pass -> update
   - **cascade**: models combine to form one super-model
     - layer_dims: input, fully connected layer(s), output
-    - workflow: pull data from source (py) -> model forward pass -> loss -> model backward pass -> update
+    - workflow: pull data from source -> model forward pass -> loss -> model backward pass -> update
   - **ensemble**: multiple unique models being trained/executed and provided to the user
     - layer_dims: input, output
   - **execute**: execution of a specific model
@@ -48,7 +48,7 @@
 - types of ML-Users:
   - **sensory**: takes input data and feeds it to another user
   - **interneuron**: takes user data and feeds it to another user (abstract)
-  - **integrate**: combine previous (or no) data to an output whose loss can be calculated
+  - **integrate**: combine previous data to an output whose loss can be calculated
 
 ## Users
 

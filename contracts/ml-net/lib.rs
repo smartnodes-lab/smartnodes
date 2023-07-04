@@ -11,6 +11,15 @@ mod ml_net {
     };
     use task::Task;
 
+    #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+    pub enum MLNetError {
+        InvalidNetFormat,
+        InvalidNetKind,
+        UserAlreadyExists,
+        UserNotFound,
+    }
+
     /// Allows for multi-dimensional layers
     #[derive(scale::Decode, scale::Encode, Debug, Clone)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
@@ -57,11 +66,14 @@ mod ml_net {
         kind: i8,
         /// Distribution of reward is singular (false) or uniform (true)
         reward_distribution: bool,
+        ///
         open: bool,
         /// Keeps track of user contributions
-        user_map: Mapping<AccountId, UserCache>,
+        user_cache: Mapping<AccountId, UserCache>,
+
         /// Specify neural network layer architeceture
         layer_dims: Vec<i64>,
+
         // max_responses: i8, // interchangable with max_block_len?
         // formatting_tips: String, // can be used to justify disputes
     }
@@ -86,7 +98,7 @@ mod ml_net {
             // 3: exec
             if kind == 0 || kind == 2 {
                 if !specified_layers == 2 {
-                    ink::env::debug_println!("Invalid network format for given kind!");
+                    ink::env::debug_println!("Invalid network format for kind!");
                     Self::env().terminate_contract(author);
                 }
             } else if kind == 1 {
@@ -111,43 +123,54 @@ mod ml_net {
                 reward_distribution,
                 kind,
                 open: true,
-                user_map: Mapping::new(),
+                user_cache: Mapping::new(),
                 layer_dims
             }
         }
 
         #[ink(message)]
-        pub fn join_net(&mut self, user: AccountId) {
+        pub fn join_net(&mut self) -> Result<(), MLNetError> {
+            let caller: AccountId = Self::env().caller();
+
             // Check that user hasn't joined already
-            if !self.user_map.contains(user) {
-                let user_cache: UserCache = UserCache::new();
-                self.user_map.insert(&user, &user_cache);
+            if !self.user_cache.contains(caller) {
+                self.user_cache.insert(caller, &UserCache::new());
             } else {
-                ink::env::debug_println!("User already joined network!");
-                Self::env().terminate_contract(user);
+                return Err(MLNetError::UserAlreadyExists);
             }
+
+            Ok(())
         }
 
         #[ink(message)]
-        pub fn submit_y(&mut self, y_ind: i64, y_pred: Layer) {
+        pub fn submit_y(&mut self, y_ind: i64, y_pred: Layer) -> Result<(), MLNetError> {
             let caller: AccountId = Self::env().caller();
 
-            if self.user_map.contains(&caller) {
-                if let Some(mut user_cache) = self.user_map.get(&caller) {
-                    user_cache.y_cache.push(y_pred);
-                    user_cache.y_loc.push(y_ind);
-                    user_cache.y_ind += 1;
-                }
+            if let Some(mut cache) = self.user_cache.get(caller) {
+                cache.y_cache.push(y_pred);
+                cache.y_loc.push(y_ind);
+                cache.y_ind += 1;
             } else {
-                ink::env::debug_println!("User not found!");
-                Self::env().terminate_contract(caller);
+                return Err(MLNetError::UserNotFound);
+            }
+
+            Ok(())
+        }
+
+        #[ink(message)]
+        pub fn get_y(&self, user: AccountId, y_ind: i64) -> Result<Option<Layer>, MLNetError> {
+            if let Some(cache) = self.user_cache.get(user) {
+                let ind = y_ind as usize;
+                return Ok(cache.y_cache.get(ind).cloned());
+            } else {
+                return Err(MLNetError::UserNotFound);
             }
         }
 
         #[ink(message)]
         pub fn submit_loss(&mut self, loss: Layer) {
             let caller: AccountId = Self::env().caller();
-            //
+
             // if self.user_map.contains(&caller) {
             //     if let Some(mut user_cache) = self.user_map.get(&caller) {
             //         user_cache.y_cache.push(y_pred);
@@ -192,13 +215,12 @@ mod ml_net {
 
     #[cfg(test)]
     mod tests {
-        use std::any::Any;
         use super::*;
+        use ink::env::{test, DefaultEnvironment};
 
         #[ink::test]
         pub fn ml_works() {
             let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
-
 
             // Main user defines ml-net
             let mut net: MLNet = MLNet::new(
@@ -206,41 +228,34 @@ mod ml_net {
                 0,
                 true,
                 0,
-                vec![10, 64, 64, 8, 2]
+                vec![10, 32, 16, 2]
             );
 
-            net.join_net(accounts.alice);
+            test::set_caller::<DefaultEnvironment>(accounts.alice);
+            net.join_net();
 
             let layer = Layer::DimTwo(
                 vec![
-                    vec![1000, 10000124, 123112973],
+                    vec![1000, 10000124, 2, 123112973],
                     vec![0, 9120934, 14238974, 4382],
                     vec![1, 1203, 1, 2],
-                    vec![200, 20, 12039, 9000],
                 ]
             );
 
+            test::set_caller::<DefaultEnvironment>(accounts.alice);
             net.submit_y(10, layer);
 
-            if let Some(cache) = net.user_map.get(accounts.alice) {
-                if let Some(y) = cache.y_cache.get(0) {
-                    match y {
-                        Layer::DimOne(values) => {
-                            for value in values {
-                                print!("{}", value)
-                            }
-                        }
-                        Layer::DimTwo(values) => {
-                            for x in values {
-                                for y in x {
-                                    print!("{}", y)
-                                }
-                                println!("l")
-                            }
-                        }
-                        Layer::DimThree(values) => {}
+            if let Some(y_vec) = net.get_y(accounts.alice, 0).unwrap() {
+                match y_vec {
+                    Layer::DimOne(values) => { unimplemented!() }
+                    Layer::DimTwo(values) => {
+                        println!("{:?}", values);
+                        println!("Passed.")
                     }
+                    Layer::DimThree(values) => { unimplemented!() }
                 }
+            } else {
+                println!("Failed.");
             }
         }
     }
