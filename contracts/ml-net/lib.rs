@@ -34,8 +34,10 @@ mod ml_net {
 
     #[ink(event)]
     pub struct LayerEvent {
+        #[ink(topic)]
         from: Option<AccountId>,
-        layer: Layer
+        #[ink(topic)]
+        layer: Layer,
     }
 
     /// To store y_pred sumissions and any other data relevant for proving and improving training
@@ -146,8 +148,8 @@ mod ml_net {
             let caller: AccountId = Self::env().caller();
 
             // Check that user hasn't joined already
-            if !self.user_cache.contains(caller) {
-                self.user_cache.insert(caller, &UserCache::new());
+            if !self.user_cache.contains(&caller) {
+                self.user_cache.insert(&caller, &UserCache::new());
             } else {
                 return Err(MLNetError::UserAlreadyExists);
             }
@@ -159,10 +161,11 @@ mod ml_net {
         pub fn submit_y(&mut self, y_ind: i64, y_pred: Layer) -> Result<(), MLNetError> {
             let caller: AccountId = Self::env().caller();
 
-            if let Some(mut cache) = self.user_cache.get(caller) {
+            if let Some(mut cache) = self.user_cache.get(&caller) {
                 cache.y_cache.push(y_pred);
                 cache.y_loc.push(y_ind);
                 cache.y_ind += 1;
+                self.user_cache.insert(&caller, &cache);
             } else {
                 return Err(MLNetError::UserNotFound);
             }
@@ -234,6 +237,10 @@ mod ml_net {
         #[ink::test]
         pub fn ml_works() {
             let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+            let addresses: Vec<AccountId> = vec![
+                accounts.alice, accounts.bob, accounts.charlie,
+                accounts.eve, accounts.django, accounts.frank
+            ];
 
             // Main user defines ml-net
             let mut net: MLNet = MLNet::new(
@@ -245,20 +252,26 @@ mod ml_net {
                 2
             );
 
-            test::set_caller::<DefaultEnvironment>(accounts.alice);
-            net.join_net();
+            // Add all users to job
+            for address in addresses {
+                test::set_caller::<DefaultEnvironment>(address);
+                net.join_net();
+            }
 
+            // Test vector to send
             let layer = Layer::DimTwo(
                 vec![
-                    vec![1000, 10000124, 2, 123112973],
-                    vec![0, 9120934, 14238974, 4382],
-                    vec![1, 1203, 1, 2],
+                    vec![1_000, 100_014, 5_909, 22_311],
+                    vec![200, 120_934, 423_897, 4_382],
+                    vec![42_901, 71_203, 909_090, 22_222],
                 ]
             );
 
-            test::set_caller::<DefaultEnvironment>(accounts.alice);
-            net.submit_y(10, layer);
-            test::advance_block::<DefaultEnvironment>;
+            // Simulate 10 blocks of activity
+            for _ in 0..10 {
+                test::set_caller::<DefaultEnvironment>(accounts.alice);
+                net.submit_y(10, layer);
+            }
 
             if let Some(y_vec) = net.get_y(accounts.alice, 0).unwrap() {
                 match y_vec {

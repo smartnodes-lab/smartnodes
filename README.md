@@ -1,7 +1,6 @@
 # Framework
 
 ## Main Concept
-
 - An oracle-like network that integrates participation/reputation metrics, and a seamless UI to allow a broader range of computation and 
   tasks to be carried out
 - Multiple APIs for programming languages and multiple blockchains
@@ -14,11 +13,9 @@
   - on-demand ML model execution and training
  
 ## ML-Net
-
 - co-operative and competitive AI training, as well as markets for models and datasets
   -  cloud network architecture for distributed machine learning execution
   -  on-demand API calls to these models for execution (e.g. for an LLM-based helper-bot online)
-  
 - types of ML-Tasks:
   - **bloom**: concurrent random initialized weights
     - layer_dims: input, output
@@ -30,15 +27,16 @@
     - layer_dims: input, output
   - **execute**: execution of a specific model
     - layer_dims: all dims
-  
 - types of ML-Users:
   - **sensory**: takes input data and feeds it to another user
   - **interneuron**: takes user data and feeds it to another user (abstract)
   - **integrate**: combine previous data to an output whose loss can be calculated
+- TODO:
+  - integrate execution & learning types
+  - job hashing / proof of work
+  - contract for each ml-net?
   
-
 ## Task-Net
-
 - The most basic task will be a multiple choice/voting problem and will contain a title, description (problem), possible
   repsonses, reward, and a list of users
 - Once a task is cast to the network (i.e. question or censuses), then a random or filtered selection of users are asked
@@ -53,12 +51,10 @@
   dispute-net) to vote on the outcome (return funds, re-post the task, etc)
 
 ## Users
-
 - descriptors/filter words (i.e. sex, DoB, nationality, religion, occupation, interests)
 - hold reputation of previous polls (% accuracy / majority votes for instance) and a hash to the completed tasks
 
 ## Preventing Abuse
-
 - socket stream along side blockchain for fast data transfer, proofs can be prioritized on-chain
 - repuation can be a score provided by the users, automated reputation based on accepted solutions / majority vote for tasks,
   and decreasing loss / increased accuracy over time, tasks completed
