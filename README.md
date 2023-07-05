@@ -2,31 +2,17 @@
 
 ## Main Concept
 
-- An oracle network that integrates participation and reputation metrics to allow for a broader range of computation and 
-  tasks to be addressed
-- A seamless UI and multiple APIs that connect users to a competitive marketplace of problem solvers
+- An oracle-like network that integrates participation/reputation metrics, and a seamless UI to allow a broader range of computation and 
+  tasks to be carried out
+- Multiple APIs for programming languages and multiple blockchains
+- connecting users to a competitive marketplace of problem solvers
 - Allows automated systems to manage problems using human and collective intelligence
 - Use-cases include but are not limited to:
-  - a marketplace for jobs, opinions, and other tasks
+  - a marketplace for jobs, opinions, and other tasks (homework, coding problems, data analysis, writing help, etc.)
+    - initial focus on tasks that can be completed or verified over the internet, by anyone
   - the moderation of online and real-world ecosystems (social media, insurance)
-  - on-demand AI model execution
-  - jobs/tasks that can be done or verified over the internet (coding problems, writing, homework help, stackoverflow/reddit etc.)
-
-## Task-Net
-
-- The most basic task will be a multiple choice/voting problem and will contain a title, description (problem), possible
-  repsonses, reward, and a list of users
-- Once a task is cast to the network (i.e. question or censuses), then a random or filtered selection of users are asked
-  to respond to the task
-- Tasks have a locked reward, which can be distributed among the majority voters or randomly
-- can be closed manually, after a certain number of votes is reached, or after a number of blocks
-- cost can be fixed/proportional to number or quality of voters 
-- poll description can include recommended format/responses (e.g. multiple choice), this can help the automated system 
-  determine when to close the poll and the quality of the answers
-- If the answer is time consuming, once a user has submitted the task is locked with the reward and the issuer can 
-  accept or decline the solution. If declined, the disputed task must be re-instantiated to the tasknet (or maybe a 
-  dispute-net) to vote on the outcome (return funds, re-post the task, etc)
-
+  - on-demand ML model execution and training
+ 
 ## ML-Net
 
 - co-operative and competitive AI training, as well as markets for models and datasets
@@ -49,6 +35,22 @@
   - **sensory**: takes input data and feeds it to another user
   - **interneuron**: takes user data and feeds it to another user (abstract)
   - **integrate**: combine previous data to an output whose loss can be calculated
+  
+
+## Task-Net
+
+- The most basic task will be a multiple choice/voting problem and will contain a title, description (problem), possible
+  repsonses, reward, and a list of users
+- Once a task is cast to the network (i.e. question or censuses), then a random or filtered selection of users are asked
+  to respond to the task
+- Tasks have a locked reward, which can be distributed among the majority voters or randomly
+- can be closed manually, after a certain number of votes is reached, or after a number of blocks
+- cost can be fixed/proportional to number or quality of voters 
+- poll description can include recommended format/responses (e.g. multiple choice), this can help the automated system 
+  determine when to close the poll and the quality of the answers
+- If the answer is time consuming, once a user has submitted the task is locked with the reward and the issuer can 
+  accept or decline the solution. If declined, the disputed task must be re-instantiated to the tasknet (or maybe a 
+  dispute-net) to vote on the outcome (return funds, re-post the task, etc)
 
 ## Users
 
