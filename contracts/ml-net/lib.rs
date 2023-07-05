@@ -32,6 +32,12 @@ mod ml_net {
         DimThree(Vec<Vec<Vec<i64>>>),
     }
 
+    #[ink(event)]
+    pub struct LayerEvent {
+        from: Option<AccountId>,
+        layer: Layer
+    }
+
     /// To store y_pred sumissions and any other data relevant for proving and improving training
     #[derive(scale::Decode, scale::Encode, Debug, Clone)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
@@ -62,18 +68,18 @@ mod ml_net {
     pub struct MLNet {
         author: AccountId,
         reward: Balance,
-        /// Kind of ML task initiated (0: bloom, 1: cascade, 2: ensemble, 3: execute)
+        /// Kind of ML task initiated (0: discrete bloom, 1: linked bloom, 2: cascade, 3: ensemble,
+        /// 4: execute)
         kind: i8,
-        /// Distribution of reward is singular (false) or uniform (true)
+        /// Distribution of participation-based reward (singular: false or uniform: true)
         reward_distribution: bool,
-        ///
+        /// Status of job (open: true, closed: false)
         open: bool,
         /// Keeps track of user contributions
         user_cache: Mapping<AccountId, UserCache>,
-
         /// Specify neural network layer architeceture
-        layer_dims: Vec<i64>,
-
+        model_info: Vec<i64>,
+        input_dim: u8,
         // max_responses: i8, // interchangable with max_block_len?
         // formatting_tips: String, // can be used to justify disputes
     }
@@ -85,29 +91,35 @@ mod ml_net {
             reward: Balance,
             reward_distribution: bool,
             kind: i8,
-            layer_dims: Vec<i64>,
+            model_info: Vec<i64>,
+            input_dim: u8
             // participation: Mapping::new(),
             // filters,
             // max_responses,
             // formatting_tips,
             // data: String (some way of direting the user to the data (via arweave or url)
         ) -> Self {
-            let specified_layers: usize = layer_dims.capacity();
+            let specified_dims: usize = model_info.capacity();
 
-            // Enforce network structure depending on kind: 0: bloom, 1: cascade, 2: ensemble,
-            // 3: exec
-            if kind == 0 || kind == 2 {
-                if !specified_layers == 2 {
-                    ink::env::debug_println!("Invalid network format for kind!");
+            // Enforce network structure depending on kind
+            if kind == 0 {
+                // Discrete bloom network must contain specified structure (dimensions)
+                if specified_dims < 2 {
+                    ink::env::debug_println!("Model must have at least two layers (in, out)");
                     Self::env().terminate_contract(author);
                 }
             } else if kind == 1 {
-                if specified_layers <= 2 {
+                if specified_dims <= 2 {
                     ink::env::debug_println!("Invalid network format for given kind!");
                     Self::env().terminate_contract(author);
                 }
-            } else if !kind == 3 {
-                if specified_layers < 2 {
+            } else if kind == 2 {
+                if !specified_dims == 2 {
+                    ink::env::debug_println!("Invalid network format for kind!");
+                    Self::env().terminate_contract(author);
+                }
+            } else if kind == 3 {
+                if specified_dims < 2 {
                     ink::env::debug_println!("Invalid network format, must be greater than 1");
                     Self::env().terminate_contract(author);
                 }
@@ -124,7 +136,8 @@ mod ml_net {
                 kind,
                 open: true,
                 user_cache: Mapping::new(),
-                layer_dims
+                model_info,
+                input_dim
             }
         }
 
@@ -228,7 +241,8 @@ mod ml_net {
                 0,
                 true,
                 0,
-                vec![10, 32, 16, 2]
+                vec![10, 32, 16, 2],
+                2
             );
 
             test::set_caller::<DefaultEnvironment>(accounts.alice);
@@ -244,6 +258,7 @@ mod ml_net {
 
             test::set_caller::<DefaultEnvironment>(accounts.alice);
             net.submit_y(10, layer);
+            test::advance_block::<DefaultEnvironment>;
 
             if let Some(y_vec) = net.get_y(accounts.alice, 0).unwrap() {
                 match y_vec {
