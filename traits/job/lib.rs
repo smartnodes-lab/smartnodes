@@ -1,10 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 #[ink::trait_definition]
-pub trait Task {
-    #[ink(message)]
-    fn respond(&mut self);
-
+pub trait Job {
     #[ink(message)]
     fn dispute(&mut self);
 
@@ -13,4 +10,7 @@ pub trait Task {
 
     #[ink(message)]
     fn open(&mut self);
+
+    #[ink(message)]
+    fn get_proof(&self);
 }

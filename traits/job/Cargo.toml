@@ -1,6 +1,6 @@
 [package]
-name = "task"
-version = "0.2.2"
+name = "job"
+version = "0.2.3"
 authors = ["[mattjhawken] <[mattjhawken@proton.me]>"]
 edition = "2021"
 
@@ -10,9 +10,8 @@ ink = { version = "4.2.1", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.3", default-features = false, features = ["derive"], optional = true }
 
-
 [lib]
-name = "task"
+name = "job"
 path = "lib.rs"
 
 [features]
@@ -22,4 +21,5 @@ std = [
     "scale/std",
     "scale-info/std",
 ]
+
 ink-as-dependency = []

@@ -5,9 +5,12 @@ mod framework {
     use ink::storage::Mapping;
     use ink::prelude::{
         string::String,
-        vec::Vec
+        vec::Vec,
+        collections::HashMap,
+        boxed::Box
     };
     use ml_net::MLNetRef;
+    use job::Job;
 
     #[derive(Debug, PartialEq, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
@@ -23,7 +26,7 @@ mod framework {
         address: AccountId,
         username: String,
         skills: Vec<String>,
-        history: Vec<String>, // potentially a hash of a completed tasknet
+        history: Vec<String>, // potentially a hash of a completed task-net
         locked_balance: Balance,
     }
 
@@ -47,20 +50,16 @@ mod framework {
     pub struct Framework {
         users: Vec<User>,
         next_user_id: i64,
-        // ml_net: MLNet,
+        ml_net: Mapping<User, MLNetRef>
     }
 
     impl Framework {
         #[ink(constructor)]
         pub fn new() -> Self {
-            // let ml_net = MLNet::new()
-            //     .code_hash(tasknet_hash)
-            //     .endowment(0)
-            //     .salt_bytes([0xDE, 0xAD, 0xBE, 0xEF])
-            //     .instantiate();
             Self {
                 users: Vec::new(),
                 next_user_id: 0,
+                ml_net: Mapping::new()
             }
         }
 
@@ -70,7 +69,6 @@ mod framework {
             &mut self, username: String, skills: Vec<String>
         ) -> Result<(), FrameworkError> {
             let caller: AccountId = Self::env().caller();
-            let locked_amount = self.env().transferred_value();
 
             // Create users if address isn't linked to an account
             if !self.users.iter().any(|user| user.username == username) {
@@ -111,13 +109,15 @@ mod framework {
     #[cfg(test)]
     mod tests {
         use super::*;
+        use ink::env::{test, DefaultEnvironment};
 
         #[ink::test]
         pub fn framework_test() {
-            let mut contract: Framework = Framework::new();
+            let accounts = test::default_accounts::<DefaultEnvironment>();
+            let mut main_contract: Framework = Framework::new();
 
             // Test user creation
-            contract.create_user(
+            main_contract.create_user(
                 String::from("jumbomeats"),
                 Vec::new()
             );

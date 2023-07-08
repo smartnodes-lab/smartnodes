@@ -14,7 +14,7 @@ mod users {
         username: String,
         experience: Vec<String>,
         skills: Vec<String>,
-        // history: Vec<String> // potentially a hash of a completed tasknet
+        // history: Vec<String> // potentially a hash of a completed task-net
     }
 
     impl User {

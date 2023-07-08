@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-pub use ml_net::MLNetRef;
+pub use ml_net::{MLNetError, MLNetRef};
 
 #[ink::contract]
 mod ml_net {
@@ -9,15 +9,15 @@ mod ml_net {
         // string::String,
         vec::Vec
     };
-    use task::Task;
+    use job::Job;
 
     #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum MLNetError {
-        InvalidNetFormat,
-        InvalidNetKind,
+        InvalidJobFormat,
+        InvalidLayer,
         UserAlreadyExists,
-        UserNotFound,
+        UserNotFound
     }
 
     /// Allows for multi-dimensional layers
@@ -50,6 +50,7 @@ mod ml_net {
         y_loc: Vec<i64>,
         /// Submission indexes
         y_ind: i64,
+        model: Vec<Layer>,
         // User role in ml-net (0: sensory, 1: inter,
         // role: i8
     }
@@ -60,6 +61,7 @@ mod ml_net {
                 y_cache: Vec::new(),
                 y_loc: Vec::new(),
                 y_ind: 0,
+                model: Vec::new(),
                 // role
             }
         }
@@ -81,7 +83,7 @@ mod ml_net {
         user_cache: Mapping<AccountId, UserCache>,
         /// Specify neural network layer architeceture
         model_info: Vec<i64>,
-        input_dim: u8,
+        dim: Layer,
         // max_responses: i8, // interchangable with max_block_len?
         // formatting_tips: String, // can be used to justify disputes
     }
@@ -94,43 +96,13 @@ mod ml_net {
             reward_distribution: bool,
             kind: i8,
             model_info: Vec<i64>,
-            input_dim: u8
+            dim: Layer
             // participation: Mapping::new(),
             // filters,
             // max_responses,
             // formatting_tips,
             // data: String (some way of direting the user to the data (via arweave or url)
         ) -> Self {
-            let specified_dims: usize = model_info.capacity();
-
-            // Enforce network structure depending on kind
-            if kind == 0 {
-                // Discrete bloom network must contain specified structure (dimensions)
-                if specified_dims < 2 {
-                    ink::env::debug_println!("Model must have at least two layers (in, out)");
-                    Self::env().terminate_contract(author);
-                }
-            } else if kind == 1 {
-                if specified_dims <= 2 {
-                    ink::env::debug_println!("Invalid network format for given kind!");
-                    Self::env().terminate_contract(author);
-                }
-            } else if kind == 2 {
-                if !specified_dims == 2 {
-                    ink::env::debug_println!("Invalid network format for kind!");
-                    Self::env().terminate_contract(author);
-                }
-            } else if kind == 3 {
-                if specified_dims < 2 {
-                    ink::env::debug_println!("Invalid network format, must be greater than 1");
-                    Self::env().terminate_contract(author);
-                }
-            }
-            else {
-                ink::env::debug_println!("Invalid network kind!");
-                Self::env().terminate_contract(author);
-            }
-
             Self {
                 author,
                 reward,
@@ -139,12 +111,12 @@ mod ml_net {
                 open: true,
                 user_cache: Mapping::new(),
                 model_info,
-                input_dim
+                dim
             }
         }
 
         #[ink(message)]
-        pub fn join_net(&mut self) -> Result<(), MLNetError> {
+        pub fn join(&mut self) -> Result<(), MLNetError> {
             let caller: AccountId = Self::env().caller();
 
             // Check that user hasn't joined already
@@ -157,9 +129,12 @@ mod ml_net {
             Ok(())
         }
 
+
         #[ink(message)]
         pub fn submit_y(&mut self, y_ind: i64, y_pred: Layer) -> Result<(), MLNetError> {
             let caller: AccountId = Self::env().caller();
+
+            self.assert_layer(&y_pred)?;
 
             if let Some(mut cache) = self.user_cache.get(&caller) {
                 cache.y_cache.push(y_pred);
@@ -184,22 +159,36 @@ mod ml_net {
         }
 
         #[ink(message)]
-        pub fn submit_loss(&mut self, loss: Layer) {
+        pub fn submit_model(&mut self, model: Vec<Layer>) -> Result<(), MLNetError> {
             let caller: AccountId = Self::env().caller();
 
-            // if self.user_map.contains(&caller) {
-            //     if let Some(mut user_cache) = self.user_map.get(&caller) {
-            //         user_cache.y_cache.push(y_pred);
-            //         user_cache.y_loc.push(y_ind);
-            //         user_cache.y_ind += 1;
-            //     } else {
-            //         ink::env::debug_println!("Invalid User call!");
-            //         Self::env().terminate_contract(caller);
-            //     }
-            // } else {
-            //     ink::env::debug_println!("User not found!");
-            //     Self::env().terminate_contract(caller);
-            // }
+            for layer in &model {
+                self.assert_layer(layer)?;
+            }
+
+            if let Some(mut cache) = self.user_cache.get(&caller) {
+                cache.model = model;
+                self.user_cache.insert(&caller, &cache);
+            }
+
+            Ok(())
+        }
+
+        fn assert_layer(&self, layer: &Layer) -> Result<(), MLNetError> {
+            match (layer, &self.dim) {
+                (Layer::DimOne(_), Layer::DimOne(_)) => Ok(()),
+                (Layer::DimTwo(_), Layer::DimTwo(_)) => Ok(()),
+                (Layer::DimThree(_), Layer::DimThree(_)) => Ok(()),
+                _ => Err(MLNetError::InvalidLayer),
+            }
+        }
+
+        fn assert_model(&self, model: Vec<Layer>) -> Result<(), MLNetError> {
+            for layer in model {
+                self.assert_layer(&layer)?;
+            }
+
+            Ok(())
         }
 
         // fn calculate_loss(&mut self, y_pred: Layer) {
@@ -207,12 +196,7 @@ mod ml_net {
         // }
     }
 
-    impl Task for MLNet {
-        #[ink(message)]
-        fn respond(&mut self) {
-            unimplemented!()
-        }
-
+    impl Job for MLNet {
         #[ink(message)]
         fn dispute(&mut self) {
             unimplemented!()
@@ -227,6 +211,11 @@ mod ml_net {
         fn open(&mut self) {
             unimplemented!()
         }
+
+        #[ink(message)]
+        fn get_proof(&self) {
+            unimplemented!()
+        }
     }
 
     #[cfg(test)]
@@ -236,11 +225,12 @@ mod ml_net {
 
         #[ink::test]
         pub fn ml_works() {
-            let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+            let accounts = test::default_accounts::<DefaultEnvironment>();
             let addresses: Vec<AccountId> = vec![
                 accounts.alice, accounts.bob, accounts.charlie,
                 accounts.eve, accounts.django, accounts.frank
             ];
+            let event_subscriber = test::recorded_events();
 
             // Main user defines ml-net
             let mut net: MLNet = MLNet::new(
@@ -249,13 +239,13 @@ mod ml_net {
                 true,
                 0,
                 vec![10, 32, 16, 2],
-                2
+                Layer::DimTwo(vec![])
             );
 
             // Add all users to job
             for address in addresses {
                 test::set_caller::<DefaultEnvironment>(address);
-                net.join_net();
+                net.join();
             }
 
             // Test vector to send
@@ -267,11 +257,19 @@ mod ml_net {
                 ]
             );
 
-            // Simulate 10 blocks of activity
-            for _ in 0..10 {
-                test::set_caller::<DefaultEnvironment>(accounts.alice);
-                net.submit_y(10, layer);
-            }
+            // Simulate 10 blocks of activity on the discrete-bloom network
+            // for block in 0..10 {
+            //     for address in &addresses {
+            //         if address.clone() == net.author {
+            //
+            //         } else {
+            //
+            //         }
+            //     }
+            // }
+
+            test::set_caller::<DefaultEnvironment>(accounts.alice);
+            net.submit_y(0, layer);
 
             if let Some(y_vec) = net.get_y(accounts.alice, 0).unwrap() {
                 match y_vec {
@@ -285,6 +283,16 @@ mod ml_net {
             } else {
                 println!("Failed.");
             }
+
+            // if let Layer::DimTwo(data) = layer {
+            //     let mut output = <Sha2x256 as HashOutput>::Type::default();
+            //     let hash = ink::env::hash_bytes::<Sha2x256>(&data, &mut output);
+            //     println!("{}", hash);
+            // }
+
+            // let mut hash_output = <Sha2x256 as HashOutput>::Type::default();
+            // hash_output.clone_from_slice(&ink_env::hash::hash::<Sha2x256, _>(&encoded_data));
+            // hash_output
         }
     }
 }
