@@ -13,6 +13,10 @@
   - Various tasks whos work can be proven & stored in some way on the blockchain (e.g. homework help, coding problems, data analysis, writing etc.)
   - Reward-driven censuses
  
+## Users
+- Descriptors/filter words (i.e. sex, DoB, nationality, religion, occupation, interests, skills)
+- Hold reputation and/or hash of previous completed jobs (% accuracy / majority votes for instance)
+ 
 ## ML-Net
 - Co-operative and competitive AI training & model execution, potentially even markets for models and datasets
   -  "Cloud network architecture" for distributed machine learning execution
@@ -51,9 +55,8 @@
   accept or decline the solution. If declined, the disputed task must be re-instantiated to the tasknet (or maybe a 
   dispute-net) to vote on the outcome (return funds, re-post the task, etc)
 
-## Users
-- Descriptors/filter words (i.e. sex, DoB, nationality, religion, occupation, interests, skills)
-- Hold reputation and/or hash of previous completed jobs (% accuracy / majority votes for instance)
+## Contest-Net
+- Network for disputed jobs on the network, all users are required to participate, similar to a jury
 
 ## Preventing Abuse
 - Off-chain data stream for fast data transfer, proofs can be prioritized on-chain
