@@ -4,63 +4,67 @@ pub use ml_net::{MLNetError, MLNetRef};
 
 #[ink::contract]
 mod ml_net {
-    use ink::storage::Mapping;
-    use ink::prelude::{
-        // string::String,
-        vec::Vec
+    use ink::{
+        prelude::vec::Vec,
+        reflect::ContractEventBase,
+        storage::Mapping,
     };
     use job::Job;
 
     #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum MLNetError {
-        InvalidJobFormat,
-        InvalidLayer,
+        InvalidFormat,
+        InvalidProof,
         UserAlreadyExists,
         UserNotFound
     }
 
-    /// Allows for multi-dimensional layers
+    type Event = <MLNet as ContractEventBase>::Type;
+
     #[derive(scale::Decode, scale::Encode, Debug, Clone)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
-    pub enum Layer {
+    pub enum Vector {
         /// One dimensional layer
         DimOne(Vec<i64>),
         /// Two dimensional layer
         DimTwo(Vec<Vec<i64>>),
         /// Three dimensional layer
-        DimThree(Vec<Vec<Vec<i64>>>),
+        DimThree(Vec<Vec<Vec<i64>>> ),
+    }
+
+    #[derive(scale::Decode, scale::Encode, Debug, Clone)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
+    pub struct Layer {
+        weights: Vector,
+        biases: Vector
     }
 
     #[ink(event)]
-    pub struct LayerEvent {
+    pub struct Proof {
+        // #[ink(topic)]
+        // y_vec: Layer,
         #[ink(topic)]
-        from: Option<AccountId>,
-        #[ink(topic)]
-        layer: Layer,
+        y_loc: i64,
     }
 
     /// To store y_pred sumissions and any other data relevant for proving and improving training
     #[derive(scale::Decode, scale::Encode, Debug, Clone)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
     pub struct UserCache {
-        /// Y submission vector
-        y_cache: Vec<Layer>,
-        /// Associated data index
+        id: AccountId,
+        y_cache: Vec<Vector>,
         y_loc: Vec<i64>,
-        /// Submission indexes
-        y_ind: i64,
         model: Vec<Layer>,
-        // User role in ml-net (0: sensory, 1: inter,
         // role: i8
     }
 
     impl UserCache {
-        pub fn new() -> Self {
+        pub fn new(id: AccountId) -> Self {
             Self {
+                id,
                 y_cache: Vec::new(),
                 y_loc: Vec::new(),
-                y_ind: 0,
                 model: Vec::new(),
                 // role
             }
@@ -72,18 +76,13 @@ mod ml_net {
     pub struct MLNet {
         author: AccountId,
         reward: Balance,
-        /// Kind of ML task initiated (0: discrete bloom, 1: linked bloom, 2: cascade, 3: ensemble,
-        /// 4: execute)
-        kind: i8,
-        /// Distribution of participation-based reward (singular: false or uniform: true)
         reward_distribution: bool,
-        /// Status of job (open: true, closed: false)
+        kind: i8,
         open: bool,
-        /// Keeps track of user contributions
-        user_cache: Mapping<AccountId, UserCache>,
-        /// Specify neural network layer architeceture
+        // The good stuff
         model_info: Vec<i64>,
-        dim: Layer,
+        dim: Vector,
+        user_cache: Vec<UserCache>,
         // max_responses: i8, // interchangable with max_block_len?
         // formatting_tips: String, // can be used to justify disputes
     }
@@ -96,7 +95,7 @@ mod ml_net {
             reward_distribution: bool,
             kind: i8,
             model_info: Vec<i64>,
-            dim: Layer
+            dim: Vector
             // participation: Mapping::new(),
             // filters,
             // max_responses,
@@ -109,19 +108,97 @@ mod ml_net {
                 reward_distribution,
                 kind,
                 open: true,
-                user_cache: Mapping::new(),
+                user_cache: Vec::new(),
                 model_info,
                 dim
             }
         }
 
         #[ink(message)]
+        pub fn submit_proof(&mut self, y_ind: i64, y_pred: Vector) -> Result<(), MLNetError> {
+            let caller: AccountId = Self::env().caller();
+
+            // Check the input matches that of the network
+            self.assert_layer(&y_pred)?;
+
+            // Check user exists and is the caller
+            if let Some(cache_ind) = self.user_cache
+                .iter()
+                .position(|user| user.id == caller)
+            {
+                let Some(mut cache) = self.user_cache.get(cache_ind);
+                if let Some(proof_ind) = cache.y_loc
+                    .iter()
+                    .position(|ind| ind == &y_ind)
+                {
+                    if cache.y_cache.len() == proof_ind {
+                        cache.y_cache.push(y_pred);
+                        self.user_cache.insert(cache_ind, cache.clone());
+                    } else {
+                        return Err(MLNetError::InvalidProof);
+                    }
+                }
+            } else {
+                return Err(MLNetError::UserNotFound);
+            }
+
+            Ok(())
+        }
+
+        #[ink(message)]
+        pub fn request_proof(&self, y_loc: i64) {
+            let caller: AccountId = Self::env().caller();
+
+            if caller == self.author {
+                self.env().emit_event(Proof { y_loc });
+
+                for user_cache in self.user_cache {
+
+                }
+            }
+        }
+
+        #[ink(message)]
+        pub fn get_y(&self, user_id: AccountId, y_ind: i64) -> Result<Option<Vector>, MLNetError> {
+            if let Some(cache) = self.user_cache
+                .iter()
+                .find(|user| user.id == user_id)
+            {
+                let ind = y_ind as usize;
+
+                if let Some(vec) = cache.y_cache.get(ind) {
+                    return Ok(Some(vec.clone()));
+                } else {
+                    return Err(MLNetError::InvalidProof);
+                }
+            } else {
+                return Err(MLNetError::UserNotFound);
+            }
+        }
+
+        // #[ink(message)]
+        // pub fn submit_model(&mut self, model: Vec<Layer>) -> Result<(), MLNetError> {
+        //     let caller: AccountId = Self::env().caller();
+        //
+        //     for layer in &model {
+        //         self.assert_layer(layer)?;
+        //     }
+        //
+        //     if let Some(mut cache) = self.user_cache.get(&caller) {
+        //         cache.model = model;
+        //         self.user_cache.insert(&caller, &cache);
+        //     }
+        //
+        //     Ok(())
+        // }
+
+        #[ink(message)]
         pub fn join(&mut self) -> Result<(), MLNetError> {
             let caller: AccountId = Self::env().caller();
 
             // Check that user hasn't joined already
-            if !self.user_cache.contains(&caller) {
-                self.user_cache.insert(&caller, &UserCache::new());
+            if self.user_cache.iter().all(|user| user.id != caller) {
+                self.user_cache.push(UserCache::new(caller));
             } else {
                 return Err(MLNetError::UserAlreadyExists);
             }
@@ -129,67 +206,22 @@ mod ml_net {
             Ok(())
         }
 
-
-        #[ink(message)]
-        pub fn submit_y(&mut self, y_ind: i64, y_pred: Layer) -> Result<(), MLNetError> {
-            let caller: AccountId = Self::env().caller();
-
-            self.assert_layer(&y_pred)?;
-
-            if let Some(mut cache) = self.user_cache.get(&caller) {
-                cache.y_cache.push(y_pred);
-                cache.y_loc.push(y_ind);
-                cache.y_ind += 1;
-                self.user_cache.insert(&caller, &cache);
-            } else {
-                return Err(MLNetError::UserNotFound);
-            }
-
-            Ok(())
-        }
-
-        #[ink(message)]
-        pub fn get_y(&self, user: AccountId, y_ind: i64) -> Result<Option<Layer>, MLNetError> {
-            if let Some(cache) = self.user_cache.get(user) {
-                let ind = y_ind as usize;
-                return Ok(cache.y_cache.get(ind).cloned());
-            } else {
-                return Err(MLNetError::UserNotFound);
-            }
-        }
-
-        #[ink(message)]
-        pub fn submit_model(&mut self, model: Vec<Layer>) -> Result<(), MLNetError> {
-            let caller: AccountId = Self::env().caller();
-
-            for layer in &model {
-                self.assert_layer(layer)?;
-            }
-
-            if let Some(mut cache) = self.user_cache.get(&caller) {
-                cache.model = model;
-                self.user_cache.insert(&caller, &cache);
-            }
-
-            Ok(())
-        }
-
-        fn assert_layer(&self, layer: &Layer) -> Result<(), MLNetError> {
+        fn assert_layer(&self, layer: &Vector) -> Result<(), MLNetError> {
             match (layer, &self.dim) {
-                (Layer::DimOne(_), Layer::DimOne(_)) => Ok(()),
-                (Layer::DimTwo(_), Layer::DimTwo(_)) => Ok(()),
-                (Layer::DimThree(_), Layer::DimThree(_)) => Ok(()),
-                _ => Err(MLNetError::InvalidLayer),
+                (Vector::DimOne(_), Vector::DimOne(_)) => Ok(()),
+                (Vector::DimTwo(_), Vector::DimTwo(_)) => Ok(()),
+                (Vector::DimThree(_), Vector::DimThree(_)) => Ok(()),
+                _ => Err(MLNetError::InvalidFormat),
             }
         }
 
-        fn assert_model(&self, model: Vec<Layer>) -> Result<(), MLNetError> {
-            for layer in model {
-                self.assert_layer(&layer)?;
-            }
-
-            Ok(())
-        }
+        // fn assert_model(&self, model: Vec<Layer>) -> Result<(), MLNetError> {
+        //     for layer in model {
+        //         self.assert_layer(&layer)?;
+        //     }
+        //
+        //     Ok(())
+        // }
 
         // fn calculate_loss(&mut self, y_pred: Layer) {
         //     unimplemented!()
@@ -239,17 +271,17 @@ mod ml_net {
                 true,
                 0,
                 vec![10, 32, 16, 2],
-                Layer::DimTwo(vec![])
+                Vector::DimTwo(vec![])
             );
 
-            // Add all users to job
+            // Add all user to job
             for address in addresses {
                 test::set_caller::<DefaultEnvironment>(address);
                 net.join();
             }
 
             // Test vector to send
-            let layer = Layer::DimTwo(
+            let layer = Vector::DimTwo(
                 vec![
                     vec![1_000, 100_014, 5_909, 22_311],
                     vec![200, 120_934, 423_897, 4_382],
@@ -269,16 +301,16 @@ mod ml_net {
             // }
 
             test::set_caller::<DefaultEnvironment>(accounts.alice);
-            net.submit_y(0, layer);
+            net.submit_proof(0, layer);
 
             if let Some(y_vec) = net.get_y(accounts.alice, 0).unwrap() {
                 match y_vec {
-                    Layer::DimOne(values) => { unimplemented!() }
-                    Layer::DimTwo(values) => {
+                    Vector::DimOne(values) => { unimplemented!() }
+                    Vector::DimTwo(values) => {
                         println!("{:?}", values);
                         println!("Passed.")
                     }
-                    Layer::DimThree(values) => { unimplemented!() }
+                    Vector::DimThree(values) => { unimplemented!() }
                 }
             } else {
                 println!("Failed.");

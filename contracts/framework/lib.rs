@@ -70,7 +70,7 @@ mod framework {
         ) -> Result<(), FrameworkError> {
             let caller: AccountId = Self::env().caller();
 
-            // Create users if address isn't linked to an account
+            // Create user if address isn't linked to an account
             if !self.users.iter().any(|user| user.username == username) {
                 let mut user = User::new(
                     caller,
@@ -78,7 +78,7 @@ mod framework {
                     Vec::<String>::with_capacity(10),
                 );
 
-                // Push skills to users if specified
+                // Push skills to user if specified
                 for i in 0..skills.len().min(user.skills.capacity()) {
                     user.skills.push(skills.get(i)
                         .cloned()
@@ -89,7 +89,7 @@ mod framework {
                 // Add value of attached balance
                 self.env().transfer(caller, user.locked_balance);
 
-                // Add users to contract
+                // Add user to contract
                 self.users.push(user);
 
                 Ok(())

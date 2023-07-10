@@ -93,7 +93,7 @@ mod tasknet {
 
             if let Some(mut task) = self.get_task(task_id) {
                 if task.author != caller {
-                    // Later add limits for participant #s and users filters
+                    // Later add limits for participant #s and user filters
                     if !task.participants.contains(&caller) {
                         task.participants.push(caller);
                     }

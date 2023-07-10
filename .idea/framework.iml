@@ -3,7 +3,6 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/contracts/poll/target" />
-      <excludeFolder url="file://$MODULE_DIR$/contracts/experimental/users/target" />
       <excludeFolder url="file://$MODULE_DIR$/contracts/experimental/poll_market/target" />
       <excludeFolder url="file://$MODULE_DIR$/contracts/ml-net/target" />
       <excludeFolder url="file://$MODULE_DIR$/contracts/framework/target" />
@@ -12,6 +11,7 @@
       <excludeFolder url="file://$MODULE_DIR$/traits/target" />
       <excludeFolder url="file://$MODULE_DIR$/errors/target" />
       <excludeFolder url="file://$MODULE_DIR$/contracts/experimental/task-net/target" />
+      <excludeFolder url="file://$MODULE_DIR$/contracts/experimental/user/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
