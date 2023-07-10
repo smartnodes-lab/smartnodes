@@ -1,22 +1,23 @@
 # Framework
 
 ## Main Concept
-- An oracle-like network that integrates participation/reputation metrics, and a seamless UI to allow a broader range of computation and 
-  tasks to be carried out
-- Multiple APIs for programming languages and multiple blockchains
-- connecting users to a competitive marketplace of problem solvers
-- Allows automated systems to manage problems using human and collective intelligence
+- An oracle-like job network that integrates participation & reputation-based secuirty metrics, rewards, and a seamless UI to form a vibrant marketplace of computational and other peer-to-peer tasks
+  - proofs of jobs are stored with each user to secure the network and aid in the recruitment of users for tasks
+- APIs in multiple programming languages, allowing users to seamlessly connect their systems to the network
+- Allows automated systems to manage problems & workflows using collective human intelligence, as well as distributed computations
+- Multiple blockchains for different scalability/security trade-offs and native reward coins/tokens
 - Use-cases include but are not limited to:
-  - a marketplace for jobs, opinions, and other tasks (homework, coding problems, data analysis, writing help, etc.)
-    - initial focus on tasks that can be completed or verified over the internet, by anyone
-  - the moderation of online and real-world ecosystems (social media, insurance)
-  - on-demand ML model execution and training
+  - The moderation of online and real-world ecosystems (social media, insurance)
+  - On-demand ML model execution and training
+  - Marketplace for jobs & job connections, utilizing the unique proofs for better recruitment of employees
+  - Various tasks whos work can be proven & stored in some way on the blockchain (e.g. homework help, coding problems, data analysis, writing etc.)
+  - Reward-driven censuses
  
 ## ML-Net
-- co-operative and competitive AI training, as well as markets for models and datasets
-  -  cloud network architecture for distributed machine learning execution
-  -  on-demand API calls to these models for execution (e.g. for an LLM-based helper-bot online)
-- types of ML-Tasks:
+- Co-operative and competitive AI training & model execution, potentially even markets for models and datasets
+  -  "Cloud network architecture" for distributed machine learning execution
+  -  On-demand API calls to these models for execution (e.g. for an LLM-based helper-bot online)
+- Types of ML task ideas:
   - **bloom**: concurrent random initialized weights
     - layer_dims: input, output
     - workflow: pull data -> model forward pass -> loss -> model backward pass -> update
@@ -28,9 +29,9 @@
   - **execute**: execution of a specific model
     - layer_dims: all dims
 - types of ML-Users:
-  - **sensory**: takes input data and feeds it to another user
-  - **interneuron**: takes user data and feeds it to another user (abstract)
-  - **integrate**: combine previous data to an output whose loss can be calculated
+  - **sense**: takes input data and feeds it to another user
+  - **inter**: takes user data and feeds it to another user (abstract)
+  - **integ**: combine previous data to an output whose loss can be calculated
 - TODO:
   - integrate execution & learning types
   - job hashing / proof of work
@@ -51,11 +52,10 @@
   dispute-net) to vote on the outcome (return funds, re-post the task, etc)
 
 ## Users
-- descriptors/filter words (i.e. sex, DoB, nationality, religion, occupation, interests)
-- hold reputation of previous polls (% accuracy / majority votes for instance) and a hash to the completed tasks
+- Descriptors/filter words (i.e. sex, DoB, nationality, religion, occupation, interests, skills)
+- Hold reputation and/or hash of previous completed jobs (% accuracy / majority votes for instance)
 
 ## Preventing Abuse
-- socket stream along side blockchain for fast data transfer, proofs can be prioritized on-chain
-- repuation can be a score provided by the users, automated reputation based on accepted solutions / majority vote for tasks,
-  and decreasing loss / increased accuracy over time, tasks completed
-- users can dispute through a reporting system (disputed poll is fed back to the network or a seperate dispute network)
+- Off-chain data stream for fast data transfer, proofs can be prioritized on-chain
+- Repuation can be a combination of a score provided by the users (i.e. the 'employers'), the number of tasks completed, % accepted solutions/majority vote, and decreasing loss/increasing accuracy of validation data
+- users can dispute through a reporting system (disputed poll is fed back to a seperate dispute network)
