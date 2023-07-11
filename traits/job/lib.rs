@@ -6,6 +6,9 @@ pub trait Job {
     fn dispute(&mut self);
 
     #[ink(message)]
+    fn join(&mut self);
+
+    #[ink(message)]
     fn close(&mut self);
 
     #[ink(message)]
