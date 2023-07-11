@@ -125,6 +125,7 @@ mod ml_net {
                     .iter()
                     .position(|ind| ind == &y_ind)
                 {
+                    // Add proof
                     if cache.y_cache.len() == proof_ind {
                         cache.y_cache.push(y_pred);
                         self.update_cache(cache);
@@ -132,20 +133,6 @@ mod ml_net {
                         return Err(MLNetError::InvalidProof);
                     }
                 }
-            }
-
-
-            if let Some(cache_ind) = self.user_cache
-                .iter()
-                .position(|user| user.id == caller)
-            {
-                if let Some(cache) = self.user_cache.get(cache_ind) {
-
-                } else {
-                    return Err(MLNetError::InvalidProof);
-                }
-            } else {
-                return Err(MLNetError::UserNotFound);
             }
 
             Ok(())
@@ -309,7 +296,7 @@ mod ml_net {
                 vec![
                     vec![1_000, 100_014, 5_909, 22_311],
                     vec![200, 120_934, 423_897, 4_382],
-                    vec![42_901, 71_203, 909_090, 22_222],
+                    vec![901, 71_203, 909_090, 22_222],
                 ]
             );
 
