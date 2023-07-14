@@ -68,7 +68,7 @@ mod tasknet {
                 open: true
             };
 
-            // Insert task-net to contract and update task_id
+            // Insert tasknet-net to contract and update task_id
             self.tasks.insert(self.next_task_id, &task);
             self.next_task_id += 1;
         }
@@ -77,8 +77,8 @@ mod tasknet {
         pub fn close(&self, task_id: i64) {
             let caller: AccountId = Self::env().caller();
 
-            // Close task-net if caller is the task-net author
-            // For future reference, only allow task-net to close if the reward-type was specified or a
+            // Close tasknet-net if caller is the tasknet-net author
+            // For future reference, only allow tasknet-net to close if the reward-type was specified or a
             // a problem occurs (rewards should be locked and sent to participants)
             if let Some(mut task) = self.get_task(task_id) {
                 if task.author == caller {
@@ -110,12 +110,12 @@ mod tasknet {
         }
 
         // #[ink(message)]
-        // pub fn get_user_tasks(&self) -> Vec<task-net> {
+        // pub fn get_user_tasks(&self) -> Vec<tasknet-net> {
         //     let caller = Self::env().caller();
         //     let mut user_tasks = Vec::new();
-        //     for task-net in self.traits {
-        //         if task-net.author == caller {
-        //             user_tasks.push(task-net.clone());
+        //     for tasknet-net in self.traits {
+        //         if tasknet-net.author == caller {
+        //             user_tasks.push(tasknet-net.clone());
         //         }
         //     }
         //     return user_tasks;
