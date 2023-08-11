@@ -1,7 +1,7 @@
 # Chainspace
 
 ## Main Concept
-- An expansive user-reputation system for peer-to-peer (P2P) interactions, to unlock the true potential of online and off-chain work
+- An expansive user-reputation system for peer-to-peer (P2P) interactions unlocking the potential of online and off-chain work
 - An oracle-like network that integrates participation & reputation-based metrics, rewards, and a seamless UI to form a vibrant marketplace of peer-to-peer tasks
   - proofs of jobs/interactions are stored with each user to secure the network and aid in the recruitment of users for tasks
 - APIs in multiple programming languages, allowing users to seamlessly connect their systems to the network
