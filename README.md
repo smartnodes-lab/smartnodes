@@ -1,8 +1,9 @@
-# Framework
+# Chainspace
 
 ## Main Concept
-- An oracle-like job network that integrates participation & reputation-based secuirty metrics, rewards, and a seamless UI to form a vibrant marketplace of computational and other peer-to-peer tasks
-  - proofs of jobs are stored with each user to secure the network and aid in the recruitment of users for tasks
+- An expansive user-reputation system for peer-to-peer (P2P) interactions, to unlock the true potential of online and off-chain work
+- An oracle-like network that integrates participation & reputation-based metrics, rewards, and a seamless UI to form a vibrant marketplace of peer-to-peer tasks
+  - proofs of jobs/interactions are stored with each user to secure the network and aid in the recruitment of users for tasks
 - APIs in multiple programming languages, allowing users to seamlessly connect their systems to the network
 - Allows automated systems to manage problems & workflows using collective human intelligence, as well as distributed computations
 - Multiple blockchains for different scalability/security trade-offs and native reward coins/tokens
@@ -12,6 +13,13 @@
   - Marketplace for jobs & job connections, utilizing the unique proofs for better recruitment of employees
   - Various tasks whos work can be proven & stored in some way on the blockchain (e.g. homework help, coding problems, data analysis, writing etc.)
   - Reward-driven censuses
+
+## Proofs
+Basian 
+- Network moderation
+- Voting/questionaires
+- Online work
+- ML Tasks
  
 ## Users
 - Descriptors/filter words (i.e. sex, DoB, nationality, religion, occupation, interests, skills)
