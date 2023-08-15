@@ -1,5 +1,5 @@
-from auth.rsa import generate_rsa_key_pair, load_public_key, authenticate_public_key
-from p2p.connection import Connection
+from src.auth.rsa import generate_rsa_key_pair, load_public_key, authenticate_public_key
+from src.p2p.connection import Connection
 
 from cryptography.hazmat.primitives import serialization
 from typing import List
@@ -81,12 +81,14 @@ class Node(threading.Thread):
 
     def connect_with_node(self, host: str, port: int, reconnect: bool = False) -> bool:
         if host == self.host and port == self.port:
-            self.debug_print("connect_with_node: cannot connect with yourself!")
+            self.debug_print(
+                "connect_with_node: cannot connect with yourself!")
             return False
 
         for node in self.all_nodes:
             if node.host == host and node.port == port:
-                self.debug_print(f"connect_with_node: already connected with node: {node.id}")
+                self.debug_print(
+                    f"connect_with_node: already connected with node: {node.id}")
                 return True
 
         node_ids = [node.id for node in self.all_nodes]
@@ -118,14 +120,16 @@ class Node(threading.Thread):
                 return True
 
             # Form connection
-            thread_client = self.create_connection(sock, connected_node_id, host, port)
+            thread_client = self.create_connection(
+                sock, connected_node_id, host, port)
             thread_client.start()
 
             self.outbound.append(thread_client)
 
             # If reconnection to this host is required, it will be added to the list!
             if reconnect:
-                self.debug_print(f"connect_with_node: reconnection check enabled on {host}:{port}")
+                self.debug_print(
+                    f"connect_with_node: reconnection check enabled on {host}:{port}")
                 self.reconnect.append({
                     "host": host, "port": port, "tries": 0
                 })
@@ -133,7 +137,8 @@ class Node(threading.Thread):
             return True
 
         except Exception as error:
-            self.debug_print(f"connect_with_node: could not connect with node. ({error})")
+            self.debug_print(
+                f"connect_with_node: could not connect with node. ({error})")
             return False
 
     def disconnect_with_node(self, node: Connection) -> None:
@@ -154,7 +159,8 @@ class Node(threading.Thread):
            connected these nodes are started again."""
         for node_to_check in self.reconnect:
             found_node = False
-            self.debug_print(f"reconnect_nodes: Checking node {node_to_check['host']}:{node_to_check['port']}")
+            self.debug_print(
+                f"reconnect_nodes: Checking node {node_to_check['host']}:{node_to_check['port']}")
 
             for node in self.outbound:
                 if node.host == node_to_check["host"] and node.port == node_to_check["port"]:
@@ -167,9 +173,11 @@ class Node(threading.Thread):
             if not found_node:  # Reconnect with node
                 node_to_check["trials"] += 1
                 # Perform the actual connection
-                self.connect_with_node(node_to_check["host"], node_to_check["port"])
+                self.connect_with_node(
+                    node_to_check["host"], node_to_check["port"])
 
-                self.debug_print(f"reconnect_nodes: removing node {node_to_check['host']}:{node_to_check['port']}")
+                self.debug_print(
+                    f"reconnect_nodes: removing node {node_to_check['host']}:{node_to_check['port']}")
                 self.reconnect.remove(node_to_check)
 
     def run(self):
@@ -180,12 +188,14 @@ class Node(threading.Thread):
                 if self.max_connections == 0 or len(self.inbound) < self.max_connections:
 
                     # Basic information exchange (not secure) of the id's of the nodes!
-                    connected_node_port = client_address[1]  # backward compatibility
+                    # backward compatibility
+                    connected_node_port = client_address[1]
                     connected_node_id = connection.recv(4096).decode('utf-8')
                     if ":" in connected_node_id:
                         (connected_node_id, connected_node_port) = connected_node_id.split(
                             ':')  # When a node is connected, it sends it id!
-                    connection.send(self.id.encode('utf-8'))  # Send my id to the connected node!
+                    # Send my id to the connected node!
+                    connection.send(self.id.encode('utf-8'))
 
                     thread_client = self.create_connection(connection, connected_node_id, client_address[0],
                                                            connected_node_port)
@@ -195,7 +205,8 @@ class Node(threading.Thread):
                     self.outbound.append(thread_client)
 
                 else:
-                    self.debug_print("node: Connection refused: maximum connection limit reached!")
+                    self.debug_print(
+                        "node: Connection refused: maximum connection limit reached!")
                     connection.close()
 
             except socket.timeout:
@@ -222,4 +233,5 @@ class Node(threading.Thread):
         print("Node stopped")
 
     def node_message(self, node: Connection, data):
-        self.debug_print(f"node_message: {node.id}: {data}")
+        time_delta = str(time.time() - float(data))
+        self.debug_print(f"node_message: {node.id}: {time_delta}")

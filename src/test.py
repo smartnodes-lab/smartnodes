@@ -2,22 +2,21 @@ from p2p.node import Node
 import time
 
 
-node1 = Node("127.0.0.1", 5025, debug=True)
-node2 = Node("127.0.0.1", 5026, debug=True)
+ip = "127.0.0.1"
+port = 5025
 
-node1.start()
+node = Node(ip, port, debug=True)
+node2 = Node(ip, 5026, debug=True)
+
+node.start()
 node2.start()
 
-node2.connect_with_node("127.0.0.1", 5025)
+node2.connect_with_node(ip, port)
 
-time.sleep(0.01)
+time.sleep(0.1)
 
-node2.send_to_nodes(b"data-transfer-test")
+start_time = str(time.time()).encode()
+node2.send_to_nodes(start_time)
 
-time.sleep(1)
-
-node1.debug_print(node1.all_nodes)
-node2.debug_print(node2.all_nodes)
-
-node1.stop()
+node.stop()
 node2.stop()
