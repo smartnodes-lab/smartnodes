@@ -271,7 +271,7 @@ mod ml_net {
                 accounts.eve, accounts.django, accounts.frank
             ];
 
-            // Main user defines framework-ai-net
+            // Main user defines framework_old-ai-net
             set_caller(accounts.alice);
             let mut net: MLNet = MLNet::new(
                 0,

@@ -1,4 +1,4 @@
-# Chainspace
+# Framework (ChainSpace Incentive Layer)
 
 ## Main Concept
 - An expansive user-reputation system for peer-to-peer (P2P) interactions unlocking the potential of online and off-chain work
