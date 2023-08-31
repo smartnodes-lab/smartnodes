@@ -3,53 +3,31 @@
 #[ink::contract]
 mod framework {
     use ink::{
-        prelude::{
-            string::String,
-            vec::Vec
-        },
+        prelude::{string::String, vec::Vec},
         storage::Mapping,
     };
     // use network::Network;
 
-    #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
-    #[cfg_attr(
-        feature = "std",
-        derive(scale_info::TypeInfo)
-    )]
+    /// Errors when calling the contract
+    #[derive(Clone, Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum FrameworkError {
         TaskOpen,
         FundingTooLow,
-        UserAlreadyExists
+        UserAlreadyExists,
     }
 
+    /// Holds key individual data (pub key + rep)
     #[derive(scale::Decode, scale::Encode, Debug, Clone)]
     #[cfg_attr(
         feature = "std",
-        derive(
-            scale_info::TypeInfo,
-            ink::storage::traits::StorageLayout
-        )
+        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
     )]
     pub struct User {
         uid: i64,
-        public_key: String,
+        public_key: [u8; 392],
         locked: Balance,
         reputation: i8,
-    }
-
-    #[derive(scale::Decode, scale::Encode, Debug, Clone)]
-    #[cfg_attr(
-        feature = "std",
-        derive(
-            scale_info::TypeInfo,
-            ink::storage::traits::StorageLayout
-        )
-    )]
-    pub struct Connection {
-        author: i64,
-        funding: Balance,
-        description: String,
-        uids: Vec<i64>,
     }
 
     #[ink(storage)]
@@ -69,26 +47,20 @@ mod framework {
                 connection_counter: 0,
                 users: Mapping::new(),
                 // connections: Mapping::default(),
-                total_deposits: 0
+                total_deposits: 0,
             }
         }
 
         #[ink(message)]
-        pub fn create_user(
-            &mut self,
-            public_key: String
-        ) -> Result<(), FrameworkError> {
+        pub fn create_user(&mut self, public_key: [u8; 392]) -> Result<(), FrameworkError> {
             let caller: AccountId = self.env().caller();
+            self.ensure_not_user(caller);
 
-            if self.users.contains(caller) {
-                return Err(FrameworkError::UserAlreadyExists);
-            }
-
-            let user: User = User {
+            let user = User {
                 uid: self.id_counter,
                 public_key,
                 locked: 0,
-                reputation: 1
+                reputation: 1,
             };
 
             self.users.insert(caller, &user);
@@ -97,18 +69,21 @@ mod framework {
             Ok(())
         }
 
-        #[ink()]
+        #[ink(message, payable)]
+        pub fn create_network(&mut self) {}
 
-        #[ink(message)]
-        pub fn get_uid(&self, user_address: AccountId) -> i64 {
-            let user = self.users.get(user_address).expect("User not found!");
-
-            return user.uid;
+        fn ensure_user(&self, user_address: AccountId) {
+            assert!(self.users.contains(user_address));
         }
 
-        #[ink(message, payable)]
-        pub fn create_network(&mut self) {
+        fn ensure_not_user(&self, user_address: AccountId) {
+            assert!(!self.users.contains(user_address));
+        }
 
+        fn user_id(&self, user_address: AccountId) -> Option<i64> {
+            self.ensure_user(user_address);
+            let user = self.users.get(user_address).expect("User not found!");
+            user.uid
         }
     }
 
@@ -160,9 +135,9 @@ mod framework {
 
             set_balance(accounts.alice, 1_000);
             set_caller(accounts.alice);
-            let result = framework.create_user(
-                String::from("abcdefghijklmnopqrstuvwxyz0123456789-=+_)(*&^%$#@!~[];',./{}|:<>?")
-            );
+            let result = framework.create_user(String::from(
+                "abcdefghijklmnopqrstuvwxyz0123456789-=+_)(*&^%$#@!~[];',./{}|:<>?",
+            ));
         }
 
         fn set_caller(caller: AccountId) {
