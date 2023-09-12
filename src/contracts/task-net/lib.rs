@@ -1,7 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-pub use self::tasknet::TaskNetRef;
-
 #[ink::contract]
 mod tasknet {
     use ink::prelude::vec::Vec;

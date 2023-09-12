@@ -12,6 +12,8 @@ scale-info = { version = "2.3", default-features = false, features = ["derive"],
 
 [lib]
 path = "lib.rs"
+user-net = { path = "user-net", default-features = false, features = ["ink-as-dependency"] }
+multi-sig = { path = "multi-sig", default-features = false, features = ["ink-as-dependency"] }
 
 [features]
 default = ["std"]
