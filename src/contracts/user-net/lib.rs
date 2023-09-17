@@ -26,7 +26,7 @@ mod usernet {
         FundingTooLow
     }
 
-    /// Holds key user connectivity info,
+    /// Holds key user connectivity info for data streams
     #[derive(scale::Decode, scale::Encode, Debug, Clone)]
     #[cfg_attr(
         feature = "std",
@@ -106,7 +106,7 @@ mod usernet {
             &mut self,
             user: User
         ) -> Result<(), UserNetError> {
-            let caller: AccountId = self::env().caller();
+            let caller: AccountId = self.env().caller();
 
             if self.user_list.users.iter().all(|user_address| user_address != caller) {
                 let user_id = self.user_list.next_id;
@@ -120,6 +120,27 @@ mod usernet {
             Ok(())
         }
 
-        fn ensure_caller_is_user(&self, user_id: UserId) {}
+        #[ink(message)]
+        pub fn get_user(&self) -> Result<UserNet, UserNetError> {
+            let caller = self.env().caller();
+            let user = self.users.get(&user_id).ok_or(UserNetError::UserNotFound)?;
+
+            ensure_caller_is_user(&user);
+            Ok(User)
+        }
+
+        fn ensure_caller_is_user(&self, user: &User) {
+            assert_eq!(self.env().caller(), user.address);
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[ink::test]
+        fn constructor_works() {
+            let contract = UserNet::new();
+        }
     }
 }
