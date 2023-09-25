@@ -1,29 +1,21 @@
 # Framework (ChainSpace Incentive Layer)
 
 ## Main Concept
-- An expansive user-reputation system for peer-to-peer (P2P) interactions unlocking the potential of online and off-chain work
-- An oracle-like network that integrates participation & reputation-based metrics, rewards, and a seamless UI to form a vibrant marketplace of peer-to-peer tasks
+- expansive user-reputation system for peer-to-peer (P2P) interactions unlocking the potential of online and off-chain work
+- integrates participation & reputation-based metrics, rewards, and a seamless UI to form a vibrant marketplace of peer-to-peer tasks
   - proofs of jobs/interactions are stored with each user to secure the network and aid in the recruitment of users for tasks
-- APIs in multiple programming languages, allowing users to seamlessly connect their systems to the network
-- Allows automated systems to manage problems & workflows using collective human intelligence, as well as distributed computations
-- Multiple blockchains for different scalability/security trade-offs and native reward coins/tokens
 - Use-cases include but are not limited to:
   - The moderation of online and real-world ecosystems (social media, insurance)
   - On-demand ML model execution and training
   - Marketplace for jobs & job connections, utilizing the unique proofs for better recruitment of employees
   - Various tasks whos work can be proven & stored in some way on the blockchain (e.g. homework help, coding problems, data analysis, writing etc.)
-  - Reward-driven censuses
+- APIs in multiple programming languages, allowing users to seamlessly connect their systems to the network
+- Allows automated systems to manage problems & workflows using collective human intelligence, as well as distributed computations
+- Multiple blockchains for different scalability/security trade-offs and native reward coins/tokens
 
-## Proofs
-Basian 
-- Network moderation
-- Voting/questionaires
-- Online work
-- ML Tasks
- 
 ## Users
 - Descriptors/filter words (i.e. sex, DoB, nationality, religion, occupation, interests, skills)
-- Hold reputation and/or hash of previous completed jobs (% accuracy / majority votes for instance)
+- Hold reputation and/or hash of previous completed jobs (eg ratings, % accuracy, majority votes)
  
 ## ML-Net
 - Co-operative and competitive AI training & model execution, potentially even markets for models and datasets
@@ -55,7 +47,7 @@ Basian
 - Once a task is cast to the network (i.e. question or censuses), then a random or filtered selection of users are asked
   to respond to the task
 - Tasks have a locked reward, which can be distributed among the majority voters or randomly
-- can be closed manually, after a certain number of votes is reached, or after a number of blocks
+- can be closed manually, after a certain number of votes is reached, or ultimately after a number of blocks to manage contract storage
 - cost can be fixed/proportional to number or quality of voters 
 - poll description can include recommended format/responses (e.g. multiple choice), this can help the automated system 
   determine when to close the poll and the quality of the answers
@@ -63,10 +55,8 @@ Basian
   accept or decline the solution. If declined, the disputed task must be re-instantiated to the tasknet (or maybe a 
   dispute-net) to vote on the outcome (return funds, re-post the task, etc)
 
-## Contest-Net
-- Network for disputed jobs on the network, all users are required to participate, similar to a jury
-
 ## Preventing Abuse
 - Off-chain data stream for fast data transfer, proofs can be prioritized on-chain
 - Repuation can be a combination of a score provided by the users (i.e. the 'employers'), the number of tasks completed, % accepted solutions/majority vote, and decreasing loss/increasing accuracy of validation data
-- users can dispute through a reporting system (disputed poll is fed back to a seperate dispute network)
+- Contest-net where users can dispute through a reporting system (disputed poll is fed back to a seperate dispute network)
+  - all users are required to participate, similar to a jury
