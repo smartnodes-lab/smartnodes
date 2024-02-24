@@ -1,4 +1,4 @@
-# Framework (ChainSpace Incentive Layer)
+# SmartLink (TensorLink Incentive Layer)
 
 ## Main Concept
 - expansive user-reputation system for peer-to-peer (P2P) interactions unlocking the potential of online and off-chain work
