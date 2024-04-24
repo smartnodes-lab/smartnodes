@@ -24,6 +24,7 @@ contract SmartNodes is ERC20 {
         uint256 unlockTime;
         uint8 reputation;
         bool isActive;
+        uint256 stateInd;
     }
 
     struct User {
@@ -38,9 +39,11 @@ contract SmartNodes is ERC20 {
         uint256 capacity;
         address[] validatorAddresses;
         bool isCompleted;
+        mapping(address => bool) completeConfirmations;
+        uint8 completeCount;
     }
 
-    struct JobCreationRequest {
+    struct JobRequest {
         uint256 id;
         address creator;
         uint256 capacity;
@@ -52,6 +55,9 @@ contract SmartNodes is ERC20 {
     mapping(uint256 => Validator) public validators;
     mapping(address => uint256) public validatorIdByAddress;
     mapping(string => uint256) public validatorIdByHash;
+    uint256[] public busyValidators;
+    uint256[] public availableValidators;
+    uint256[] public activeValidators;
 
     // User mappings
     mapping(uint256 => User) public users;
@@ -59,25 +65,31 @@ contract SmartNodes is ERC20 {
 
     // Job mappings
     mapping(uint256 => Job) public jobs;
-    mapping(uint256 => JobCreationRequest) public pendingJobs;
+    mapping(uint256 => JobRequest) public jobRequests;
 
-    // Counters
+    // Counters for users
     uint256 public validatorIdCounter = 1;
     uint256 public userIdCounter = 1;
-    uint256 public jobIdCounter = 1;
-    uint256 public requiredSignatures = 2; // Minimum required signatures for any job
+    uint256 public jobCounter = 1;
+
+    // Minimum and maximum required signatures for any job
+    uint8 public minValidators = 2;
+    uint8 public maxValidators = 16;
 
     // Events
     event ValidatorCreated(uint256 indexed id, address validatorAddress);
     event TokensLocked(address indexed validator, uint256 amount);
     event UnlockInitiated(address indexed validator, uint256 unlockTime);
     event TokensUnlocked(address indexed validator, uint256 amount);
+    event ValidatorActivated(uint256 indexed validatorId);
+    event ValidatorDeactivated(uint256 indexed validatorId);
+    event JobCompleted(uint256 indexed jobId);
 
     constructor() ERC20("TensorLink", "TLINK") {
         _mint(msg.sender, 100);
     }
 
-    /// Role creation methods (User & Validator) ///
+    // Role creation methods (User & Validator)
     function createUser() external {
         require(userIdByAddress[msg.sender] == 0, "User already registered.");
         users[userIdCounter] = User({
@@ -95,18 +107,17 @@ contract SmartNodes is ERC20 {
             "Validator with this publicKeyHash already exists."
         );
 
-        validators[validatorIdCounter] = Validator({
-            id: validatorIdCounter,
-            validatorAddress: msg.sender,
-            publicKeyHash: publicKeyHash,
-            locked: 0,
-            unlockTime: 0,
-            reputation: 0,
-            isActive: true
-        });
+        Validator storage validator = validators[validatorIdCounter];
+        validator.id = validatorIdCounter;
+        validator.validatorAddress = msg.sender;
+        validator.publicKeyHash = publicKeyHash;
+        validator.isActive = true;
 
         validatorIdByAddress[msg.sender] = validatorIdCounter;
         validatorIdByHash[publicKeyHash] = validatorIdCounter;
+
+        validator.stateInd = availableValidators.length;
+        availableValidators.push(validatorIdCounter);
 
         emit ValidatorCreated(validatorIdCounter, msg.sender);
 
@@ -114,7 +125,7 @@ contract SmartNodes is ERC20 {
     }
 
     /// Validator Token Locking and Unlocking ///
-    function lockTokens(uint256 amount) external {
+    function lockTokens(uint32 amount) external {
         require(amount > 0, "Amount must be greater than zero.");
         require(balanceOf(msg.sender) >= amount, "Insufficient balance.");
 
@@ -129,7 +140,7 @@ contract SmartNodes is ERC20 {
         emit TokensLocked(msg.sender, amount);
     }
 
-    function unlockTokens(uint256 amount) external {
+    function unlockTokens(uint32 amount) external {
         uint256 validatorId = validatorIdByAddress[msg.sender];
         Validator storage validator = validators[validatorId];
 
@@ -138,7 +149,7 @@ contract SmartNodes is ERC20 {
 
         // Initialize the unlock time if it's the first unlock attempt
         if (validator.unlockTime == 0) {
-            validator.unlockTime = block.timestamp + 1 years; // e.g., set to 1 year from now
+            validator.unlockTime = block.timestamp + 50400; // 14 day unlocking period
             emit UnlockInitiated(msg.sender, validator.unlockTime); // Optional: emit an event
         } else {
             // On subsequent attempts, check if the unlock period has elapsed
@@ -155,62 +166,111 @@ contract SmartNodes is ERC20 {
     }
 
     // User Job Requesting
-    function requestJob(uint256 capacity) external {
-        require(
-            users[userIdByAddress[msg.sender]] != 0,
-            "User must be registered."
-        );
+    function requestJob(uint8 nValidators, uint256 capacity) external {
+        require(userIdByAddress[msg.sender] != 0, "User not registered.");
         require(capacity > 0, "Capacity must be greater zero.");
         // require(workerAddresses.length > 0)
 
-        JobCreationRequest storage request = pendingJobs[jobIdCounter++];
-        request.id = jobIdCounter;
+        JobRequest storage request = jobRequests[jobCounter];
+        request.id = jobCounter;
         request.creator = msg.sender;
         request.capacity = capacity;
-        request.workerAddresses = workerAddresses;
 
         // Select validators pseudorandomly
-        address[] memory selectedValidators = _pseudorandomValidatorSelection(
-            requiredSignatures
+        uint256[] memory selectedValidatorIds = _pseudorandomValidatorSelection(
+            nValidators
         );
-        request.validatorAddresses = selectedValidators; // Store the selected validators
 
-        jobIdCounter++; // Increment jobIdCounter after storing the job request
+        address[] memory selectedValidators = new address[](
+            selectedValidatorIds.length
+        );
+
+        // Change selected validators to the busy (active) state and grab their address
+        for (uint256 i = 0; i < selectedValidatorIds.length; i++) {
+            selectedValidators[i] = validators[selectedValidatorIds[i]]
+                .validatorAddress;
+        }
+
+        request.validatorAddresses = selectedValidators; // Store the selected validators
+        jobCounter++; // Increment jobCounter after storing the job request
     }
 
-    // Validator job request voting
+    // Validator job creation voting
     function approveJobCreation(uint256 jobId) external {
         uint256 validatorId = validatorIdByAddress[msg.sender];
         Validator storage validator = validators[validatorId];
         require(validator.isActive, "Validator is not active.");
         require(
-            pendingJobs[jobId].id == jobId,
+            jobRequests[jobId].id == jobId,
             "Job creation request does not exist."
         );
 
-        JobCreationRequest storage request = pendingJobs[jobId];
+        JobRequest storage request = jobRequests[jobId];
+        uint8 nValidators = uint8(request.validatorAddresses.length);
         request.signatures[msg.sender] = true;
 
-        if (countSignatures(request) == requiredSignatures) {
-            Job memory job = Job({
-                id: jobId,
-                owner: request.creator,
-                capacity: request.capacity,
-                workerAddresses: request.workerAddresses,
-                isCompleted: false
-            });
+        // Final signature triggers the deletion of the job request and the creation of the job
+        if (_countSignatures(request) == nValidators) {
+            Job storage job = jobs[jobId];
+            job.id = jobId;
+            job.owner = request.creator;
+            job.capacity = request.capacity;
+            job.validatorAddresses = request.validatorAddresses;
+            job.completeCount = 0;
+            delete jobRequests[jobId];
+        }
+    }
 
-            jobs[jobId] = job;
-            delete pendingJobs[jobId];
+    // Validator job completion voting
+    function completeJob(uint256 jobId) external {
+        Job storage job = jobs[jobId];
+        require(job.id == jobId, "Job does not exist.");
+        require(job.isCompleted == false, "Job is already completed.");
+
+        // Check if sender is one of the validators
+        bool isValidator = false;
+        for (uint i = 0; i < job.validatorAddresses.length; i++) {
+            if (msg.sender == job.validatorAddresses[i]) {
+                isValidator = true;
+                break;
+            }
+        }
+
+        require(
+            isValidator,
+            "Only validators of this job may call this function"
+        );
+        require(
+            job.completeConfirmations[msg.sender] = false,
+            "Validator already confirmed."
+        );
+
+        job.completeConfirmations[msg.sender] = true;
+        job.completeCount++;
+
+        // If all validators have confirmed status, mark job as complete
+        if (job.completeCount == job.validatorAddresses.length) {
+            job.isCompleted = true;
+
+            // Move all validators to the inactive state
+            for (uint i = 0; i < job.validatorAddresses.length; i++) {
+                Validator storage validator = validators[
+                    validatorIdByAddress[job.validatorAddresses[i]]
+                ];
+                uint256 validatorStateIndex = validator.stateInd;
+                _updateValidatorState(validatorStateIndex, false);
+            }
+
+            emit JobCompleted(jobId);
         }
     }
 
     function _countSignatures(
-        JobCreationRequest storage request
+        JobRequest storage request
     ) internal view returns (uint256) {
         uint256 count = 0;
-        for (uint256 i = 0; i < request.workerAddresses.length; i++) {
-            if (request.signatures[request.workerAddresses[i]]) {
+        for (uint256 i = 0; i < request.validatorAddresses.length; i++) {
+            if (request.signatures[request.validatorAddresses[i]]) {
                 count++;
             }
         }
@@ -218,44 +278,151 @@ contract SmartNodes is ERC20 {
         return count;
     }
 
+    // Pseudorandom selection of validators
     function _pseudorandomValidatorSelection(
         uint8 nValidators
-    ) internal view returns (address[] memory) {
+    ) internal returns (uint256[] memory) {
         require(
-            nValidators > 0 && nValidators <= validatorIdCounter - 1,
-            "Invalid number of validators requested."
+            nValidators >= minValidators && nValidators <= maxValidators,
+            "nValidators must be between minValidator and maxValidator"
+        );
+        require(
+            nValidators > 0 && nValidators <= availableValidators.length,
+            "Not enough available validators for job, please try again later."
         );
 
-        address[] memory selectedValidators = new address[](nValidators);
-        uint256[] memory seenIndices = new uint256[](nValidators);
-        uint256 randIndex = uint256(
-            keccak256(
-                abi.encodePacked(block.timestamp, block.difficulty, msg.sender)
-            )
-        ) % validatorIdCounter;
-        uint256 count = 0;
+        uint256[] memory selectedValidators = new uint256[](nValidators);
+        uint256 availableLength = availableValidators.length;
 
-        while (count < nValidators) {
-            if (
-                !validators[randIndex].isActive || seenIndices[randIndex] == 1
-            ) {
-                randIndex = (randIndex + 1) % validatorIdCounter;
-                continue;
-            }
-            seenIndices[randIndex] = 1;
-            selectedValidators[count++] = validators[randIndex]
-                .validatorAddress;
-            randIndex = (randIndex + 1) % validatorIdCounter;
+        for (uint256 i = 0; i < nValidators; i++) {
+            uint256 nonce = 0;
+            uint256 randIndex = uint256(
+                keccak256(
+                    abi.encodePacked(block.timestamp, msg.sender, nonce++)
+                )
+            ) % availableLength;
+
+            selectedValidators[i] = availableValidators[randIndex];
+
+            // Update validator activity state
+            _updateValidatorState(randIndex, true);
+
+            // Decrement the length of available validators array for the next iteration
+            availableLength--;
         }
 
         return selectedValidators;
     }
 
-    function getJobIdCounter() external view returns (uint256) {
-        return jobIdCounter;
+    function _updateValidatorState(uint256 stateInd, bool activate) internal {
+        // Move validator to the active state
+        if (activate) {
+            require(
+                stateInd >= 0 && stateInd < availableValidators.length,
+                "Invalid ValidatorId"
+            );
+            uint256 validatorId = availableValidators[stateInd];
+
+            // Move validator in idle list to back for removal
+            if (stateInd != availableValidators.length - 1) {
+                availableValidators[stateInd] = availableValidators[
+                    availableValidators.length - 1
+                ];
+            }
+            availableValidators.pop();
+
+            busyValidators.push(validatorId);
+        } else {
+            require(
+                stateInd >= 0 && stateInd < busyValidators.length,
+                "Invalid ValidatorId"
+            );
+
+            uint256 validatorId = busyValidators[stateInd];
+
+            if (stateInd != busyValidators.length - 1) {
+                busyValidators[stateInd] = busyValidators[
+                    busyValidators.length - 1
+                ];
+            }
+            busyValidators.pop();
+
+            availableValidators.push(validatorId);
+        }
+    }
+
+    function _activateValidator(uint256 validatorId) internal {
+        require(
+            0 < validatorId && validatorId < validatorIdCounter,
+            "Validator ID must be valid."
+        );
+
+        Validator storage validator = validators[validatorId];
+        require(!validator.isActive, "Validator already active!");
+        validator.isActive = true;
+        activeValidators.push(validatorId);
+        emit ValidatorActivated(validatorId);
+    }
+
+    function _deactivateValidator(uint256 validatorId) internal {
+        require(
+            0 < validatorId && validatorId < validatorIdCounter,
+            "Validator ID must be valid."
+        );
+        Validator storage validator = validators[validatorId];
+        require(validator.isActive, "Validator not active!");
+        validator.isActive = false;
+
+        for (uint256 i = 0; i < activeValidators.length; i++) {
+            if (activeValidators[i] == validatorId) {
+                activeValidators[i] ==
+                    activeValidators[activeValidators.length - 1];
+                activeValidators.pop();
+                break;
+            }
+        }
+
+        emit ValidatorActivated(validatorId);
+    }
+
+    function random() external view returns (uint256) {
+        return uint256(keccak256(abi.encodePacked((block.timestamp))));
+    }
+
+    function getjobCounter() external view returns (uint256) {
+        return jobCounter;
     }
 
     function getValidatorIdCounter() external view returns (uint256) {
         return validatorIdCounter;
+    }
+
+    function getUserIdCounter() external view returns (uint256) {
+        return userIdCounter;
+    }
+
+    // Returns a list of all the selected validators for a job request
+    function getJobRequestValidators(
+        uint256 reqId
+    ) external view returns (address[] memory) {
+        require(reqId < jobCounter, "Invalid jobRequest ID");
+        JobRequest storage jobReq = jobRequests[reqId];
+        if (jobReq.id == reqId) {
+            address[] memory jobReqAddresses = jobRequests[reqId]
+                .validatorAddresses;
+            return jobReqAddresses;
+        } else {
+            revert("JobRequest not found!");
+        }
+    }
+
+    // Returns a list of all the availableValidators
+    function getAvailableValidators() external view returns (uint256[] memory) {
+        return availableValidators;
+    }
+
+    // Returns a list of all the busyValidators
+    function getBusyValidators() external view returns (uint256[] memory) {
+        return busyValidators;
     }
 }
