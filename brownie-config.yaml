@@ -1,9 +1,11 @@
 dependencies:
   - OpenZeppelin/openzeppelin-contracts@4.2.0
+  - OpenZeppelin/openzeppelin-contracts-upgradeable@4.5.0
 compiler:
   solc:
     remappings:
       - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.2.0"
+      - "@openzeppelin-upgradeable=OpenZeppelin/openzeppelin-contracts-upgradeable@4.5.0"
 networks:
   default: ganache-local
 dotenv: .env

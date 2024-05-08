@@ -1,11 +1,10 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 
-contract SmartNodes is ERC20 {
+contract SmartNodes is Initializable, ERC20Upgradeable {
     // // Modifier to require multisignature validation
     // modifier onlyMultiSig() {
     //     // Check if the function invocation is authorized by a specified number of validators
@@ -24,12 +23,12 @@ contract SmartNodes is ERC20 {
         uint256 unlockTime;
         uint8 reputation;
         bool isActive;
-        uint256 stateInd;
     }
 
     struct User {
         uint256 id;
         address userAddress;
+        string publicKeyHash;
         uint8 reputation;
     }
 
@@ -55,26 +54,26 @@ contract SmartNodes is ERC20 {
     mapping(uint256 => Validator) public validators;
     mapping(address => uint256) public validatorIdByAddress;
     mapping(string => uint256) public validatorIdByHash;
-    uint256[] public busyValidators;
-    uint256[] public availableValidators;
-    uint256[] public activeValidators;
+    mapping(uint256 => string) public validatorHashById;
+    mapping(uint256 => uint256) public validatorStateById;
 
     // User mappings
     mapping(uint256 => User) public users;
     mapping(address => uint256) public userIdByAddress;
+    mapping(string => uint256) public userIdByHash;
 
     // Job mappings
     mapping(uint256 => Job) public jobs;
     mapping(uint256 => JobRequest) public jobRequests;
 
     // Counters for users
-    uint256 public validatorIdCounter = 1;
-    uint256 public userIdCounter = 1;
-    uint256 public jobCounter = 1;
+    uint256 public validatorIdCounter;
+    uint256 public userIdCounter;
+    uint256 public jobCounter;
 
     // Minimum and maximum required signatures for any job
-    uint8 public minValidators = 2;
-    uint8 public maxValidators = 16;
+    uint8 public minValidators;
+    uint8 public maxValidators;
 
     // Events
     event ValidatorCreated(uint256 indexed id, address validatorAddress);
@@ -85,19 +84,27 @@ contract SmartNodes is ERC20 {
     event ValidatorDeactivated(uint256 indexed validatorId);
     event JobCompleted(uint256 indexed jobId);
 
-    constructor() ERC20("TensorLink", "TLINK") {
+    function initialize() public initializer {
+        __ERC20_init("TensorLink", "TLINK");
         _mint(msg.sender, 100);
+        validatorIdCounter = 1;
+        userIdCounter = 1;
+        jobCounter = 1;
+        minValidators = 2;
+        maxValidators = 12;
     }
 
     // Role creation methods (User & Validator)
-    function createUser() external {
+    function createUser(string memory publicKeyHash) external {
         require(userIdByAddress[msg.sender] == 0, "User already registered.");
         users[userIdCounter] = User({
             id: userIdCounter,
             userAddress: msg.sender,
-            reputation: 0 // Initialize reputation if applicable
+            reputation: 0,
+            publicKeyHash: publicKeyHash
         });
 
+        userIdByHash[publicKeyHash] = userIdCounter;
         userIdByAddress[msg.sender] = userIdCounter++;
     }
 
@@ -115,9 +122,8 @@ contract SmartNodes is ERC20 {
 
         validatorIdByAddress[msg.sender] = validatorIdCounter;
         validatorIdByHash[publicKeyHash] = validatorIdCounter;
-
-        validator.stateInd = availableValidators.length;
-        availableValidators.push(validatorIdCounter);
+        validatorHashById[validatorIdCounter] = publicKeyHash;
+        validatorStateById[validatorIdCounter] = 1;
 
         emit ValidatorCreated(validatorIdCounter, msg.sender);
 
@@ -166,7 +172,10 @@ contract SmartNodes is ERC20 {
     }
 
     // User Job Requesting
-    function requestJob(uint8 nValidators, uint256 capacity) external {
+    function requestJob(
+        uint8 nValidators,
+        uint256 capacity
+    ) external returns (uint256[] memory) {
         require(userIdByAddress[msg.sender] != 0, "User not registered.");
         require(capacity > 0, "Capacity must be greater zero.");
         // require(workerAddresses.length > 0)
@@ -193,6 +202,8 @@ contract SmartNodes is ERC20 {
 
         request.validatorAddresses = selectedValidators; // Store the selected validators
         jobCounter++; // Increment jobCounter after storing the job request
+
+        return selectedValidatorIds;
     }
 
     // Validator job creation voting
@@ -257,8 +268,7 @@ contract SmartNodes is ERC20 {
                 Validator storage validator = validators[
                     validatorIdByAddress[job.validatorAddresses[i]]
                 ];
-                uint256 validatorStateIndex = validator.stateInd;
-                _updateValidatorState(validatorStateIndex, false);
+                _updateValidatorState(validator.id, false);
             }
 
             emit JobCompleted(jobId);
@@ -287,67 +297,65 @@ contract SmartNodes is ERC20 {
             "nValidators must be between minValidator and maxValidator"
         );
         require(
-            nValidators > 0 && nValidators <= availableValidators.length,
+            nValidators > 0 && nValidators <= validatorIdCounter,
             "Not enough available validators for job, please try again later."
         );
 
         uint256[] memory selectedValidators = new uint256[](nValidators);
-        uint256 availableLength = availableValidators.length;
+        uint256 selectedCount = 0;
 
         for (uint256 i = 0; i < nValidators; i++) {
             uint256 nonce = 0;
-            uint256 randIndex = uint256(
-                keccak256(
-                    abi.encodePacked(block.timestamp, msg.sender, nonce++)
-                )
-            ) % availableLength;
+            while (selectedCount == i) {
+                uint256 randId = uint256(
+                    keccak256(
+                        abi.encodePacked(block.timestamp, msg.sender, nonce++)
+                    )
+                ) % validatorIdCounter;
 
-            selectedValidators[i] = availableValidators[randIndex];
-
-            // Update validator activity state
-            _updateValidatorState(randIndex, true);
-
-            // Decrement the length of available validators array for the next iteration
-            availableLength--;
+                if (validatorStateById[randId] == 1) {
+                    // Mark selected validator as busy
+                    _updateValidatorState(randId, true);
+                    selectedValidators[i] = randId;
+                    selectedCount++;
+                } else if (nonce < 50) {
+                    nonce++;
+                } else {
+                    revert("Max validator requests reached");
+                }
+            }
         }
 
         return selectedValidators;
     }
 
-    function _updateValidatorState(uint256 stateInd, bool activate) internal {
-        // Move validator to the active state
+    function _updateValidatorState(
+        uint256 validatorId,
+        bool activate
+    ) internal {
+        require(
+            validatorId > 0 && validatorId < validatorIdCounter,
+            "Invalid ValidatorId"
+        );
+        require(
+            validatorStateById[validatorId] > 0,
+            "Validator is not online."
+        );
+
         if (activate) {
-            require(
-                stateInd >= 0 && stateInd < availableValidators.length,
-                "Invalid ValidatorId"
-            );
-            uint256 validatorId = availableValidators[stateInd];
-
-            // Move validator in idle list to back for removal
-            if (stateInd != availableValidators.length - 1) {
-                availableValidators[stateInd] = availableValidators[
-                    availableValidators.length - 1
-                ];
+            // Move validator to the active state if not already active
+            if (validatorStateById[validatorId] == 1) {
+                validatorStateById[validatorId] = 2;
+            } else {
+                revert("Validator being activated is already active!");
             }
-            availableValidators.pop();
-
-            busyValidators.push(validatorId);
         } else {
-            require(
-                stateInd >= 0 && stateInd < busyValidators.length,
-                "Invalid ValidatorId"
-            );
-
-            uint256 validatorId = busyValidators[stateInd];
-
-            if (stateInd != busyValidators.length - 1) {
-                busyValidators[stateInd] = busyValidators[
-                    busyValidators.length - 1
-                ];
+            // Move validator to the inactive state if not already inactive
+            if (validatorStateById[validatorId] == 2) {
+                validatorStateById[validatorId] = 1;
+            } else {
+                revert("Validator is already inactive!");
             }
-            busyValidators.pop();
-
-            availableValidators.push(validatorId);
         }
     }
 
@@ -360,7 +368,7 @@ contract SmartNodes is ERC20 {
         Validator storage validator = validators[validatorId];
         require(!validator.isActive, "Validator already active!");
         validator.isActive = true;
-        activeValidators.push(validatorId);
+        validatorStateById[validatorId] = 1;
         emit ValidatorActivated(validatorId);
     }
 
@@ -370,18 +378,11 @@ contract SmartNodes is ERC20 {
             "Validator ID must be valid."
         );
         Validator storage validator = validators[validatorId];
+
         require(validator.isActive, "Validator not active!");
         validator.isActive = false;
 
-        for (uint256 i = 0; i < activeValidators.length; i++) {
-            if (activeValidators[i] == validatorId) {
-                activeValidators[i] ==
-                    activeValidators[activeValidators.length - 1];
-                activeValidators.pop();
-                break;
-            }
-        }
-
+        validatorStateById[validatorId] = 0;
         emit ValidatorActivated(validatorId);
     }
 
@@ -401,6 +402,22 @@ contract SmartNodes is ERC20 {
         return userIdCounter;
     }
 
+    function getUserId(
+        string memory publicKeyHash
+    ) external view returns (uint256) {
+        return userIdByHash[publicKeyHash];
+    }
+
+    function getValidatorState(
+        uint256 validatorId
+    ) external view returns (uint256) {
+        require(
+            validatorId > 0 && validatorId < validatorIdCounter,
+            "Invalid ValidatorId!"
+        );
+        return validatorStateById[validatorId];
+    }
+
     // Returns a list of all the selected validators for a job request
     function getJobRequestValidators(
         uint256 reqId
@@ -414,15 +431,5 @@ contract SmartNodes is ERC20 {
         } else {
             revert("JobRequest not found!");
         }
-    }
-
-    // Returns a list of all the availableValidators
-    function getAvailableValidators() external view returns (uint256[] memory) {
-        return availableValidators;
-    }
-
-    // Returns a list of all the busyValidators
-    function getBusyValidators() external view returns (uint256[] memory) {
-        return busyValidators;
     }
 }
