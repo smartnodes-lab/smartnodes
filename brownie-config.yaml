@@ -1,13 +1,19 @@
 dependencies:
-  - OpenZeppelin/openzeppelin-contracts@4.2.0
+  - OpenZeppelin/openzeppelin-contracts@4.8.0
   - OpenZeppelin/openzeppelin-contracts-upgradeable@4.5.0
+  - smartcontractkit/chainlink-brownie-contracts@1.1.0
 compiler:
   solc:
     remappings:
-      - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.2.0"
+      - "@openzeppelin-2=OpenZeppelin/openzeppelin-contracts@4.8.0"
+      - "@openzeppelin=OpenZeppelin/openzeppelin-contracts-upgradeable@4.5.0"
       - "@openzeppelin-upgradeable=OpenZeppelin/openzeppelin-contracts-upgradeable@4.5.0"
+      - "@chainlink=smartcontractkit/chainlink-brownie-contracts@1.1.0"
 networks:
   default: ganache-local
+  sepolia:
+    host: https://sepolia.infura.io/v3/f577fc71ebf242b597e22bc9cda753c9
+    chainid: 11155111
 dotenv: .env
 wallets:
   from_key: ${PRIVATE_KEY}

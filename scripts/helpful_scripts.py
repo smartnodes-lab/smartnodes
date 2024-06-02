@@ -1,4 +1,4 @@
-from brownie import SmartNodes, accounts, config
+from brownie import accounts, config
 import eth_utils
 
 

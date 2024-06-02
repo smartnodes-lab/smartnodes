@@ -1,6 +1,6 @@
-# SmartLink (TensorLink Incentive Layer)
+# Smartnodes
 
-## Main Concept
+## Main Ideas
 - expansive user-reputation system for peer-to-peer (P2P) interactions unlocking the potential of online and off-chain work
 - integrates participation & reputation-based metrics, rewards, and a seamless UI to form a vibrant marketplace of peer-to-peer tasks
   - proofs of jobs/interactions are stored with each user to secure the network and aid in the recruitment of users for tasks
