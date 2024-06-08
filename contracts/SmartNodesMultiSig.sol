@@ -1,20 +1,39 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.5;
 
+import "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+import "@openzeppelin-upgradeable/contracts/interfaces/IERC20Upgradeable.sol";
+import "./interfaces/ISmartnodesCore.sol";
+
 /** 
-    * @title SmartNodesMultiSig
-    * @dev A multi-signature contract composed of Smart Nodes validators responsible for
-     managing the Smart Nodes contract
+    * @title SmartnodesMultiSig
+    * @dev A multi-signature contract composed of Smartnodes validators responsible for
+     managing the Core contract
 */
-contract SmartNodesMultiSig {
+contract SmartnodesMultiSig is Initializable {
+    // State update constraints
+    uint256 public lastProposal = 0; // time of last proposal
+    uint256 public constant UPDATE_TIME = 600; // seconds required between state updates
+    uint256 public requiredApprovalsPercentage = 66;
+
+    // Counters for storage indexing / IDs
+    uint256 public nextProposalId;
+    uint256 public requiredApprovals;
+
+    address[] public validators;
+
+    // Metadata and bytecode for SmartNodes calls
+    ISmartnodesCore private _smartnodesContractInstance;
+    address public smartnodesContractAddress;
+
     enum FunctionType {
-        ConfirmValidator,
         UpdateValidator,
-        UpdateJob,
-        UpdateWorkers
+        ConfirmValidator,
+        CompleteJob,
+        DisputeJob
     }
 
-    // Proposal for a Smart Nodes Update
+    // Proposal for a Smartnodes Update
     struct Proposal {
         uint256 id;
         FunctionType[] functionTypes;
@@ -23,32 +42,16 @@ contract SmartNodesMultiSig {
         uint256 approvals;
     }
 
-    // State update constraints
-    uint256 public lastProposal = 0; // time of last proposal
-    uint256 public constant UPDATE_TIME = 600; // seconds required between state updates
-    uint256 public requiredApprovalsPercentage = 66;
-
-    address[] public validators;
-    uint256 public nextProposalId;
-    uint256 public requiredApprovals;
-
-    // Metadata and bytecode for SmartNodes calls
-    address public parentContract;
-
     mapping(address => bool) public isValidator; // For quick validator check
     mapping(uint256 => Proposal) public proposals;
     mapping(uint256 => mapping(address => bool)) public approvals;
 
-    event ValidatorAdded(address validator);
-    event ValidatorRemoved(address validator);
-    event ProposalCreated(
-        uint256 proposalId,
-        address targetContract,
-        bytes data
-    );
+    event ProposalCreated(uint256 proposalId, bytes data);
     event Voted(uint256 proposalId, address validator);
     event ProposalExecuted(uint256 proposalId);
     event Deposit(address indexed sender, uint amount);
+    event ValidatorAdded(address validator);
+    event ValidatorRemoved(address validator);
 
     modifier onlyValidator() {
         require(
@@ -58,10 +61,11 @@ contract SmartNodesMultiSig {
         _;
     }
 
-    constructor(
+    function initialize(
         address target // Address of the main contract (Smart Nodes)
-    ) {
-        parentContract = target;
+    ) public initializer {
+        smartnodesContractAddress = target;
+        _smartnodesContractInstance = ISmartnodesCore(target);
     }
 
     receive() external payable {
@@ -69,17 +73,21 @@ contract SmartNodesMultiSig {
     }
 
     /**
-     * @notice Creates a new proposal
+     * @notice Creates a new proposal, to update all the essential data structures given some aggregated off-chain state.
      * @param _functionTypes The types of functions to be called in the proposal
      * @param _data The call data for the proposal
      */
-    function createTransaction(
+    function createProposal(
         FunctionType[] calldata _functionTypes,
         bytes[] calldata _data
     ) external onlyValidator {
         require(
             block.timestamp - lastProposal > UPDATE_TIME,
-            "Proposals must be submitted after UPDATE_TIME since last approved proposal."
+            "Proposals must be submitted after UPDATE_TIME since last approved proposal!"
+        );
+        require(
+            _functionTypes.length == _data.length,
+            "Function types and data length must match!"
         );
 
         proposals[nextProposalId] = Proposal({
@@ -90,11 +98,8 @@ contract SmartNodesMultiSig {
             approvals: 0
         });
 
-        emit ProposalCreated(
-            nextProposalId,
-            parentContract,
-            abi.encode(_functionTypes, _data)
-        );
+        emit ProposalCreated(nextProposalId, abi.encode(_functionTypes, _data));
+
         nextProposalId++;
     }
 
@@ -110,7 +115,7 @@ contract SmartNodesMultiSig {
         );
 
         if (isValidator[msg.sender] == false) {
-            _addValidator(msg.sender);
+            addValidator(msg.sender);
         }
 
         approvals[_proposalId][msg.sender] = true;
@@ -124,45 +129,60 @@ contract SmartNodesMultiSig {
     }
 
     /**
-     * @notice Adds a new validator to the contract
-     * @param validator The address of the new validator
-     */
-    function _addValidator(address validator) internal {
-        require(
-            _checkValidator(validator),
-            "Validator must be registered on Smart Nodes"
-        );
-
-        isValidator[validator] = true;
-        validators.push(validator);
-        _updateApprovalRequirements();
-
-        emit ValidatorAdded(validator);
-    }
-
-    /**
      * @notice Executes a proposal if it has enough approvals. Only to be called by approveTransaction
      * @param _proposalId The ID of the proposal to be executed
      */
-    function _executeTransaction(uint256 _proposalId) internal {
-        require(!proposals[_proposalId].executed, "Proposal already executed");
-
+    function _executeTransaction(uint256 _proposalId) internal onlyValidator {
         Proposal storage proposal = proposals[_proposalId];
+        require(!proposal.executed, "Proposal already executed.");
+        uint256 totalCapacity = 0;
+        uint256[] memory allCapacities;
+        address[] memory allWorkers;
 
-        for (uint i = 0; i < proposal.data.length; i++) {
-            (bool success, ) = parentContract.call(
-                abi.encodeWithSelector(
-                    _getFunctionSelector(proposal.functionTypes[i]),
-                    proposal.data[i]
-                )
-            );
-            require(success, "Proposal execution failed!");
+        for (uint i = 0; i < proposal.functionTypes.length; i++) {
+            // if (proposal.functionTypes[i] == FunctionType.UpdateValidator) {
+            //     address validator = abi.decode(proposal.data[i], (address));
+            //     _smartnodesContractInstance.updateValidator(validator);
+            if (proposal.functionTypes[i] == FunctionType.CompleteJob) {
+                (uint256 jobId, address[] memory workers) = abi.decode(
+                    proposal.data[i],
+                    (uint256, address[])
+                );
+                uint256[] memory capacities = _smartnodesContractInstance
+                    .completeJob(jobId, workers);
+
+                uint256 newLength = capacities.length + allCapacities.length;
+                uint256[] memory newCapacities = new uint256[](newLength);
+                address[] memory newWorkers = new address[](newLength);
+
+                for (uint256 j = 0; j < capacities.length; j++) {
+                    totalCapacity += capacities[j];
+                }
+
+                allCapacities = 
+
+            } else if (proposal.functionTypes[i] == FunctionType.DisputeJob) {
+                uint256 jobId = abi.decode(proposal.data[i], (uint256));
+                _smartnodesContractInstance.disputeJob(jobId);
+            }
+            // else if (proposal.functionTypes[i] == FunctionType.UpdateWorkers) {
+            //     address[] memory workers = abi.decode(proposal.data[i], (address[]));
+            //     _updateWorkers(workers);
+            // }
         }
 
-        proposals[_proposalId].executed = true;
-        lastProposal = block.timestamp;
+        // Distribute rewards for workers
+        uint256 emissionRate = _smartnodesContractInstance.getEmissionRate();
+        for (uint256 k = 0; k < allWorkers.length; k++) {
+            uint256 reward = ((allCapacities[k] * emissionRate) /
+                totalCapacity);
+            IERC20Upgradeable(
+                _smartnodesContractInstance.transfer(allWorkers[k], reward)
+            );
+        }
 
-        _rewardValidators(_proposalId);
+        proposal.executed = true;
+        lastProposal = block.timestamp;
 
         emit ProposalExecuted(_proposalId);
     }
@@ -187,6 +207,41 @@ contract SmartNodesMultiSig {
     }
 
     /**
+     * @notice Adds a new validator to the contract
+     * @param validator The address of the new validator
+     */
+    function addValidator(address validator) public {
+        require(
+            _checkValidator(validator),
+            "Validator must be registered on SmartnodesCore!"
+        );
+        require(
+            !isValidator[validator],
+            "Validator already registered on MultSig!"
+        );
+
+        isValidator[validator] = true;
+        validators.push(validator);
+        _updateApprovalRequirements();
+
+        emit ValidatorAdded(validator);
+    }
+
+    function removeValidator(address validator) external onlyValidator {
+        require(isValidator[validator], "Validator not registered!");
+        isValidator[validator] = false;
+        for (uint256 i = 0; i < validators.length; i++) {
+            if (validators[i] == validator) {
+                validators[i] = validators[validators.length - 1];
+                validators.pop();
+                break;
+            }
+        }
+        _updateApprovalRequirements();
+        emit ValidatorRemoved(validator);
+    }
+
+    /**
      * @notice Checks if a given address is a valid validator on the parent contract
      * @param validator The address to check
      * @return True if the address is a valid validator, false otherwise
@@ -195,41 +250,31 @@ contract SmartNodesMultiSig {
         require(validator != address(0), "Invalid address.");
         require(!isValidator[validator], "Validator already registered.");
 
-        // Append the validator address to the contract query
-        bytes memory confirmValidatorCall = abi.encodeWithSelector(
-            _getFunctionSelector(FunctionType.ConfirmValidator),
-            validator
-        );
-
         // Perform staticcall with the new data (get validator)
-        (bool success, bytes memory returnData) = parentContract.staticcall(
-            confirmValidatorCall
-        );
-        require(success, "Static call failed.");
-
-        // Decode the return data to check if the validator is registered
-        bool isVal = abi.decode(returnData, (bool));
+        bool isVal = _smartnodesContractInstance.isLocked(validator);
         return isVal;
     }
 
-    /**
-     * @notice Returns the function selector for a given function type
-     * @param functionType The type of function
-     * @return The function selector
-     */
-    function _getFunctionSelector(
-        FunctionType functionType
-    ) internal pure returns (bytes4) {
-        if (functionType == FunctionType.ConfirmValidator) {
-            return bytes4(keccak256("validatorIdByAddress(address)"));
-        } else if (functionType == FunctionType.UpdateValidator) {
-            return bytes4(keccak256("updateValidator(address)"));
-        } else if (functionType == FunctionType.UpdateJob) {
-            return bytes4(keccak256("updateJob(bytes)"));
-        } else if (functionType == FunctionType.UpdateWorkers) {
-            return bytes4(keccak256("updateWorkers(bytes)"));
-        } else {
-            revert("Invalid function type");
+    // Pseudorandom selection of validators TODO Swap to VRF implementation?
+    function generateValidatorCandidates()
+        external
+        view
+        returns (address[] memory)
+    {
+        uint8 nValidators = 1;
+
+        address[] memory selectedValidators = new address[](nValidators);
+        uint256 selectedCount = 0;
+
+        for (uint256 i = 0; i < nValidators; i++) {
+            uint256 randId = uint256(
+                keccak256(abi.encodePacked(block.timestamp, msg.sender, i))
+            ) % validators.length;
+
+            selectedValidators[i] = validators[randId];
+            selectedCount++;
         }
+
+        return selectedValidators;
     }
 }
