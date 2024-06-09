@@ -14,7 +14,7 @@ interface ISmartnodesCore {
     function disputeJob(uint256 jobId) external;
     function lockTokens(uint32 amount) external;
     function unlockTokens(uint32 amount) external;
-    function mintTokens(uint256 amount) external;
+    function mintTokens(address recipient, uint256 amount) external;
     function getJobValidators(
         uint256 jobId
     ) external view returns (address[] memory);

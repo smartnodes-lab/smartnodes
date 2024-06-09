@@ -9,6 +9,12 @@ interface ISmartnodesMultiSig {
     ) external;
     function approveTransaction(uint256 _proposalId) external;
     function removeValidator(address validator) external;
+    function updateLockedTokens(
+        address _validator,
+        uint256 locked,
+        bool enough
+    ) external;
+
     function generateValidatorCandidates()
         external
         view
