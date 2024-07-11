@@ -9,14 +9,6 @@ import "./interfaces/ISmartnodesMultiSig.sol";
  * @dev An ERC20 contract for managing off-chain networks
  */
 contract SmartnodesCore is ERC20Upgradeable {
-    // ERC20 token supply metrics
-    uint256 public constant INITIAL_SUPPLY = 8_000_000e18;
-    uint256 public constant MAX_SUPPLY = 21_000_000e18;
-    uint256 public halving = 52_560; // number of state updates until next halving
-    uint256 public emissionRate = 128e18; // amount of tokens to be emitted per state update
-    uint256 public lockAmount = 50_000e18; // minimum validator locked tokens required
-    uint256 public unlockPeriod = 50400;
-
     // Validator multi-sig address
     ISmartnodesMultiSig private _validatorContractInstance;
     address public validatorContractAddress;
@@ -33,9 +25,13 @@ contract SmartnodesCore is ERC20Upgradeable {
     event TokensLocked(address indexed validator, uint256 amount);
     event UnlockInitiated(address indexed validator, uint256 unlockTime);
     event TokensUnlocked(address indexed validator, uint256 amount);
-    event JobRequested(uint256 indexed jobId, address[] seedValidators);
-    event JobCompleted(uint256 indexed jobId);
-    event JobDisputed(uint256 indexed jobId);
+    event JobRequested(
+        uint256 indexed jobId,
+        uint256 timestamp,
+        address[] seedValidators
+    );
+    event JobCompleted(uint256 indexed jobId, uint256 timestamp);
+    event JobDisputed(uint256 indexed jobId, uint256 timestamp);
 
     // User data with key information (address, RSA key hash, reputation)
     struct User {
@@ -65,16 +61,27 @@ contract SmartnodesCore is ERC20Upgradeable {
         bool activity;
     }
 
-    uint256[] public completedJobs;
+    // ERC20 token supply metrics
+    uint256 public constant MAX_SUPPLY = 21_000_000e18;
+    uint256 constant tailEmission = 1e18;
+
+    uint256 public halving = 2160; // number of state updates until next halving (~3 months)
+    uint256 public emissionRate = 2048e18; // amount of tokens to be emitted per state update
+    uint256 public lockAmount = 50_000e18; // minimum validator locked tokens required
+    uint256 public unlockPeriod = 50400;
+    uint256 public timeSinceLastHalving;
 
     // Main datastructure mappings via id lookup
     mapping(uint256 => User) public users;
     mapping(uint256 => Validator) public validators;
     mapping(uint256 => Job) public jobs;
 
+    uint256[] public activeJobs;
+
     // Helpful mappings
     mapping(address => uint256) public userIdByAddress;
     mapping(address => uint256) public validatorIdByAddress;
+    mapping(bytes32 => uint256) public jobIdByUserIdHash; // temporary for validator job creation?
 
     modifier onlyValidatorMultiSig() {
         require(
@@ -84,20 +91,38 @@ contract SmartnodesCore is ERC20Upgradeable {
         _;
     }
 
-    function initialize() public initializer {
+    function initialize(
+        address[] memory _leadDevelopers,
+        address _communityWallet
+    ) public initializer {
         __ERC20_init("Smartnodes", "SNO");
 
         // Set all counters to 1 (when looking up values, 0 = Not found)
         userIdCounter = 1;
         jobCounter = 1;
         validatorIdCounter = 1;
+
+        // Set ERC20 token parameters
+        emissionRate = 2048e18; // amount of tokens to be emitted per state update
+        lockAmount = 50_000e18; // minimum validator locked tokens required
+        halving = 2160;
+        unlockPeriod = 50400; // (seconds)
+        timeSinceLastHalving = 0;
+
+        uint256 devWallets = 2_341_280e18;
+        uint256 communityFunding = 2_000_000e18;
+        uint256 idoAmount = 3_500_000e18;
+        communityFunding += idoAmount; // We are sending the ido amount to the community wallet while we await an initial token sale
+
+        for (uint i = 0; i < _leadDevelopers.length; i++) {
+            _mint(_leadDevelopers[i], devWallets / _leadDevelopers.length);
+        }
+
+        _mint(_communityWallet, communityFunding);
+
+        // Other parameters
         minValidators = 1;
         maxValidators = 3;
-        completedJobs = new uint256[](5_000);
-        emissionRate = 128e18; // amount of tokens to be emitted per state update
-        lockAmount = 50_000e18; // minimum validator locked tokens required
-        halving = 52_560;
-        unlockPeriod = 50400;
     }
 
     function setValidatorContract(address validatorAddress) external {
@@ -130,14 +155,17 @@ contract SmartnodesCore is ERC20Upgradeable {
     /**
      * @dev Create a Validator, limit one per address & public key hash (RSA), requires locking up sno
      */
-    function createValidator(bytes32 _publicKeyHash) external payable {
+    function createValidator(
+        bytes32 _publicKeyHash,
+        uint256 _lockAmount
+    ) external {
         require(
             validatorIdByAddress[msg.sender] == 0,
             "Validator already exists."
         );
 
         require(
-            balanceOf(msg.sender) >= lockAmount,
+            balanceOf(msg.sender) >= _lockAmount && _lockAmount >= lockAmount,
             "Insufficient token balance."
         );
 
@@ -190,7 +218,7 @@ contract SmartnodesCore is ERC20Upgradeable {
             activity: true
         });
 
-        emit JobRequested(jobCounter, _seedValidators);
+        emit JobRequested(jobCounter, block.timestamp, _seedValidators);
         jobCounter++;
 
         return _validatorIds;
@@ -201,20 +229,20 @@ contract SmartnodesCore is ERC20Upgradeable {
         address[] memory _workers
     ) external onlyValidatorMultiSig returns (uint256[] memory) {
         require(_workers.length == jobs[jobId].capacities.length);
+
         jobs[jobId].workers = _workers;
         jobs[jobId].activity = false;
-        emit JobCompleted(jobId);
-        if (completedJobs.length >= 5_000) {
-            completedJobs.pop();
-        }
-        completedJobs.push(jobId);
+        // jobIdByUserIdHash[userIdHash] = 0;
+
+        emit JobCompleted(jobId, block.timestamp);
+
         return jobs[jobId].capacities;
     }
 
     function disputeJob(uint256 jobId) external onlyValidatorMultiSig {
         Job storage job = jobs[jobId];
         job.activity = false;
-        emit JobDisputed(jobId);
+        emit JobDisputed(jobId, block.timestamp);
     }
 
     /**
@@ -243,28 +271,14 @@ contract SmartnodesCore is ERC20Upgradeable {
     /**
      * @dev Validator token unlocking, 30 day withdrawal period.
      */
-    function lockTokens(uint32 amount) external {
-        require(amount > 0, "Amount must be greater than zero.");
-        require(balanceOf(msg.sender) >= amount, "Insufficient balance.");
-
-        uint256 validatorId = validatorIdByAddress[msg.sender];
-        require(validatorId != 0, "Validator does not exist.");
-
-        transferFrom(msg.sender, address(this), amount);
-        validators[validatorId].locked += amount;
-        uint256 totalLocked = validators[validatorId].locked;
-
-        _validatorContractInstance.updateLockedTokens(
-            msg.sender,
-            totalLocked,
-            totalLocked >= lockAmount
-        );
-
-        emit TokensLocked(msg.sender, amount);
+    function lockTokens(uint256 amount) external {
+        _lockTokens(msg.sender, amount);
     }
 
-    function unlockTokens(uint32 amount) external {
+    function unlockTokens(uint256 amount) external {
         uint256 validatorId = validatorIdByAddress[msg.sender];
+        require(validatorId > 0, "Not a registered validator.");
+
         Validator storage validator = validators[validatorId];
 
         require(amount <= validator.locked, "Amount exceeds locked balance.");
@@ -298,16 +312,44 @@ contract SmartnodesCore is ERC20Upgradeable {
     }
 
     /**
-     * @dev Mint tokens for updating state rewards,
-     TODO change to internal (external for testing)
+     * @dev Mint tokens for updating state rewards, distribute 40/60 among validators and workers
+     * Updates the emission rate and halving accordingly
      */
-    function mintTokens(address recipient, uint256 amount) external {
+    function mintTokens(
+        address[] memory _workers,
+        uint256[] memory _workerCapacities,
+        uint256 _totalCapacity,
+        address[] memory _validatorsVoted
+    ) external onlyValidatorMultiSig {
         require(
             totalSupply() + emissionRate <= MAX_SUPPLY,
             "Maximum supply reached!"
         );
-        // _mint(msg.sender, emissionRate);
-        _mint(recipient, amount);
+
+        if (timeSinceLastHalving >= halving) {
+            if (emissionRate > 1e18) {
+                emissionRate /= 2;
+            }
+        }
+
+        uint256 validatorRewardTotal = (emissionRate * 40) / 100;
+        uint256 workerRewardTotal = (emissionRate * 60) / 100;
+
+        // Distribute rewards for validators equally
+        uint256 validatorReward = validatorRewardTotal /
+            _validatorsVoted.length;
+        for (uint256 v = 0; v < _validatorsVoted.length; v++) {
+            _mint(_validatorsVoted[v], validatorReward);
+        }
+
+        // Distribute rewards for workers
+        for (uint256 w = 0; w < _workers.length; w++) {
+            uint256 reward = ((_workerCapacities[w] * workerRewardTotal) /
+                _totalCapacity);
+            _mint(_workers[w], reward);
+        }
+
+        timeSinceLastHalving++;
     }
 
     // Returns a list of all the selected validators for a job request
@@ -323,9 +365,16 @@ contract SmartnodesCore is ERC20Upgradeable {
         }
     }
 
-    // function updateSmartnodesValidatorContract() external {
-    //     _
-    // }
+    function getValidatorInfo(
+        uint256 _validatorId
+    ) external view returns (bool, bytes32) {
+        require(_validatorId < validatorIdCounter, "Invalid ID.");
+        Validator storage _validator = validators[_validatorId];
+        bool isActive = _validatorContractInstance.isActiveValidator(
+            _validator.validatorAddress
+        );
+        return (isActive, _validator.publicKeyHash);
+    }
 
     function getUserCount() external view returns (uint256) {
         return userIdCounter - 1;
@@ -336,7 +385,7 @@ contract SmartnodesCore is ERC20Upgradeable {
     }
 
     function getActiveValidatorCount() external view returns (uint256) {
-        return activeValidators;
+        return _validatorContractInstance.getNumValidators();
     }
 
     function getEmissionRate() external view returns (uint256) {
@@ -350,5 +399,9 @@ contract SmartnodesCore is ERC20Upgradeable {
     function isLocked(address validatorAddr) external view returns (bool) {
         uint256 _id = validatorIdByAddress[validatorAddr];
         return validators[_id].locked >= lockAmount;
+    }
+
+    function getProposees() external view returns (address[] memory) {
+        return _validatorContractInstance.getSelectedValidators();
     }
 }

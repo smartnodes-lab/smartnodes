@@ -5,6 +5,7 @@ interface ISmartnodesCore {
     function createUser(bytes32 _publicKeyHash) external;
     function createValidator(bytes32 _publicKeyHash) external;
     function requestJob(
+        bytes32 userIdHash,
         uint256[] calldata _capacities
     ) external returns (uint256[] memory);
     function completeJob(
@@ -12,9 +13,14 @@ interface ISmartnodesCore {
         address[] memory _workers
     ) external returns (uint256[] memory);
     function disputeJob(uint256 jobId) external;
-    function lockTokens(uint32 amount) external;
-    function unlockTokens(uint32 amount) external;
-    function mintTokens(address recipient, uint256 amount) external;
+    function lockTokens(uint32 amou256) external;
+    function unlockTokens(uint256 amount) external;
+    function mintTokens(
+        address[] memory _workers,
+        uint256[] memory _workerCapacities,
+        uint256 _totalCapacity,
+        address[] memory _validatorsVoted
+    ) external;
     function getJobValidators(
         uint256 jobId
     ) external view returns (address[] memory);

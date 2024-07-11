@@ -11,11 +11,31 @@ import "./interfaces/ISmartnodesCore.sol";
      managing the Core contract
 */
 contract SmartnodesMultiSig is Initializable {
-    // State update constraints
-    uint256 public lastProposal = 0; // time of last proposal
-    uint256 public constant UPDATE_TIME = 600; // seconds required between state updates
-    uint256 public requiredApprovalsPercentage = 66;
+    enum FunctionType {
+        DeactivateValidator,
+        CompleteJob
+        // DisputeJob,
+        // CreateJob
+    }
 
+    // Proposal for a Smartnodes Update
+    struct Proposal {
+        uint256 id;
+        FunctionType[] functionTypes;
+        bytes[] data;
+        bool executed;
+        uint256 _approvals;
+    }
+
+    struct ValidatorTokens {
+        uint256 locked;
+        bool enough;
+    }
+
+    // State update constraints
+    uint256 public lastProposal; // time of last proposal
+    uint256 public constant UPDATE_TIME = 0; // 600; seconds required between state updates
+    uint256 public requiredApprovalsPercentage;
     uint256 public maxStateUpdates;
 
     // Counters for storage indexing / IDs
@@ -26,32 +46,14 @@ contract SmartnodesMultiSig is Initializable {
     ISmartnodesCore private _smartnodesContractInstance;
     address public smartnodesContractAddress;
 
-    enum FunctionType {
-        UpdateValidator,
-        ConfirmValidator,
-        CompleteJob,
-        DisputeJob
-    }
-
-    // Proposal for a Smartnodes Update
-    struct Proposal {
-        uint256 id;
-        FunctionType[] functionTypes;
-        bytes[] data;
-        bool executed;
-        uint256 approvals;
-    }
-
-    struct ValidatorTokens {
-        uint256 locked;
-        bool enough;
-    }
-
     address[] public validators;
-    mapping(address => bool) public isValidator; // For quick validator check
+    address[] public currentRoundValidators;
+
+    mapping(address => bool) public isValidator; // For quick validator checks
     mapping(address => ValidatorTokens) public lockedTokens;
     mapping(uint256 => Proposal) public proposals;
     mapping(uint256 => mapping(address => bool)) public approvals;
+    mapping(uint256 => mapping(uint256 => address)) public approvedValidators;
 
     event ProposalCreated(uint256 proposalId, bytes data);
     event Voted(uint256 proposalId, address validator);
@@ -77,6 +79,15 @@ contract SmartnodesMultiSig is Initializable {
         _;
     }
 
+    modifier onlySelectedValidator() {
+        require(
+            _isCurrentRoundValidator(msg.sender) ||
+                currentRoundValidators.length == 0,
+            "Caller is not a selected validator for this round!"
+        );
+        _;
+    }
+
     function initialize(
         address target // Address of the main contract (Smart Nodes)
     ) public initializer {
@@ -97,11 +108,11 @@ contract SmartnodesMultiSig is Initializable {
      * @param _data The call data for the proposal
      */
     function createProposal(
-        FunctionType[] calldata _functionTypes,
-        bytes[] calldata _data
-    ) external onlyValidator {
+        FunctionType[] memory _functionTypes,
+        bytes[] memory _data
+    ) external onlySelectedValidator {
         require(
-            block.timestamp - lastProposal > UPDATE_TIME,
+            block.timestamp - lastProposal >= UPDATE_TIME,
             "Proposals must be submitted after UPDATE_TIME since last approved proposal!"
         );
         require(
@@ -109,13 +120,10 @@ contract SmartnodesMultiSig is Initializable {
             "Function types and data length must match!"
         );
 
-        proposals[nextProposalId] = Proposal({
-            id: nextProposalId,
-            functionTypes: _functionTypes,
-            data: _data,
-            executed: false,
-            approvals: 0
-        });
+        Proposal storage proposal = proposals[nextProposalId];
+        proposal.id = nextProposalId;
+        proposal.functionTypes = _functionTypes;
+        proposal.data = _data;
 
         emit ProposalCreated(nextProposalId, abi.encode(_functionTypes, _data));
 
@@ -137,14 +145,42 @@ contract SmartnodesMultiSig is Initializable {
             addValidator(msg.sender);
         }
 
-        approvals[_proposalId][msg.sender] = true;
-        proposals[_proposalId].approvals++;
+        Proposal storage proposal = proposals[_proposalId];
+        approvedValidators[_proposalId][proposal._approvals] = msg.sender;
+        proposal._approvals++;
 
-        if (proposals[_proposalId].approvals >= requiredApprovals) {
+        approvals[_proposalId][msg.sender] = true;
+        emit Voted(_proposalId, msg.sender);
+
+        if (proposals[_proposalId]._approvals >= requiredApprovals) {
             _executeTransaction(_proposalId);
         }
+    }
 
-        emit Voted(_proposalId, msg.sender);
+    /**
+     * @notice Adds a new validator to the contract
+     * @param validator The address of the new validator
+     */
+    function addValidator(address validator) public {
+        require(
+            lockedTokens[validator].enough,
+            "Validator must be registered and locked on SmartnodesCore!"
+        );
+        require(
+            !isValidator[validator],
+            "Validator already registered on MultSig!"
+        );
+
+        validators.push(validator);
+        isValidator[validator] = true;
+        _updateApprovalRequirements();
+
+        emit ValidatorAdded(validator);
+    }
+
+    function removeValidator(address validator) external onlyValidator {
+        require(msg.sender == validator, "Cannot remove another validator!");
+        _removeValidator(validator);
     }
 
     /**
@@ -160,7 +196,7 @@ contract SmartnodesMultiSig is Initializable {
         );
         uint256 totalWorkers = 0;
 
-        // get total number of workers and capacities
+        // Get total number of participant workers and their capacities
         for (uint i = 0; i < proposal.functionTypes.length; i++) {
             if (proposal.functionTypes[i] == FunctionType.CompleteJob) {
                 (uint256 jobId, address[] memory workers) = abi.decode(
@@ -178,14 +214,18 @@ contract SmartnodesMultiSig is Initializable {
         uint256 allWorkerInd = 0;
 
         for (uint i = 0; i < proposal.functionTypes.length; i++) {
-            // if (proposal.functionTypes[i] == FunctionType.UpdateValidator) {
-            //     address validator = abi.decode(proposal.data[i], (address));
-            //     _smartnodesContractInstance.updateValidator(validator);
-            if (proposal.functionTypes[i] == FunctionType.CompleteJob) {
+            // Update connected validator stats
+            if (proposal.functionTypes[i] == FunctionType.DeactivateValidator) {
+                address validator = abi.decode(proposal.data[i], (address));
+                _removeValidator(validator);
+
+                // Update job completions
+            } else if (proposal.functionTypes[i] == FunctionType.CompleteJob) {
                 (uint256 jobId, address[] memory workers) = abi.decode(
                     proposal.data[i],
                     (uint256, address[])
                 );
+
                 uint256[] memory capacities = _smartnodesContractInstance
                     .completeJob(jobId, workers);
 
@@ -195,28 +235,36 @@ contract SmartnodesMultiSig is Initializable {
                     allWorkers[allWorkerInd] = workers[j];
                     allWorkerInd++;
                 }
-            } else if (proposal.functionTypes[i] == FunctionType.DisputeJob) {
-                uint256 jobId = abi.decode(proposal.data[i], (uint256));
-                _smartnodesContractInstance.disputeJob(jobId);
+                // } else if (proposal.functionTypes[i] == FunctionType.DisputeJob) {
+                //     uint256 jobId = abi.decode(proposal.data[i], (uint256));
+                //     _smartnodesContractInstance.disputeJob(jobId);
+                // } else if (proposal.functionTypes[i] == FunctionType.CreateJob) {
+                //     (bytes32 userHash, uint256[] memory _capacities) = abi.decode(
+                //         proposal.data[i],
+                //         (bytes32, uint256[])
+                //     );
+                //     _smartnodesContractInstance.requestJob(userHash, _capacities);
             }
-            // else if (proposal.functionTypes[i] == FunctionType.UpdateWorkers) {
-            //     address[] memory workers = abi.decode(proposal.data[i], (address[]));
-            //     _updateWorkers(workers);
-            // }
         }
 
-        // Distribute rewards for workers
-        uint256 emissionRate = _smartnodesContractInstance.getEmissionRate();
-        for (uint256 k = 0; k < allWorkers.length; k++) {
-            uint256 reward = ((allCapacities[k] * emissionRate) /
-                totalCapacity);
-            _smartnodesContractInstance.mintTokens(allWorkers[k], reward);
-            emit RewardDistributed(allWorkers[k], emissionRate);
+        address[] memory _approvedValidators = new address[](
+            proposal._approvals
+        );
+
+        for (uint i = 0; i < proposal._approvals; i++) {
+            _approvedValidators[i] = approvedValidators[_proposalId][i];
         }
+
+        _smartnodesContractInstance.mintTokens(
+            allWorkers,
+            allCapacities,
+            totalCapacity,
+            _approvedValidators
+        );
 
         proposal.executed = true;
         lastProposal = block.timestamp;
-
+        // currentRoundValidators = _generateValidatorCandidates();
         emit ProposalExecuted(_proposalId);
     }
 
@@ -231,7 +279,7 @@ contract SmartnodesMultiSig is Initializable {
      */
     function _updateApprovalRequirements() internal {
         requiredApprovals =
-            (validators.length * requiredApprovalsPercentage) /
+            (validators.length * requiredApprovalsPercentage + 80) /
             100;
 
         if (requiredApprovals == 0) {
@@ -239,30 +287,7 @@ contract SmartnodesMultiSig is Initializable {
         }
     }
 
-    /**
-     * @notice Adds a new validator to the contract
-     * @param validator The address of the new validator
-     */
-    function addValidator(address validator) public {
-        require(
-            lockedTokens[msg.sender].enough,
-            "Validator must be registered and locked on SmartnodesCore!"
-        );
-        require(
-            !isValidator[validator],
-            "Validator already registered on MultSig!"
-        );
-
-        validators.push(msg.sender);
-        isValidator[validator] = true;
-        _updateApprovalRequirements();
-
-        emit ValidatorAdded(validator);
-    }
-
-    function removeValidator(
-        address validator
-    ) external onlyValidator onlySmartnodes {
+    function _removeValidator(address validator) private {
         require(isValidator[validator], "Validator not registered!");
         isValidator[validator] = false;
 
@@ -286,6 +311,9 @@ contract SmartnodesMultiSig is Initializable {
     {
         uint8 nValidators = 1;
 
+        // Ensure there are validators available to select from
+        require(validators.length > 0, "No validators available");
+
         address[] memory selectedValidators = new address[](nValidators);
         uint256 selectedCount = 0;
 
@@ -301,6 +329,17 @@ contract SmartnodesMultiSig is Initializable {
         return selectedValidators;
     }
 
+    function _isCurrentRoundValidator(
+        address _validator
+    ) internal view returns (bool) {
+        for (uint i = 0; i < currentRoundValidators.length; i++) {
+            if (currentRoundValidators[i] == _validator) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     function updateLockedTokens(
         address _validator,
         uint256 locked,
@@ -308,5 +347,25 @@ contract SmartnodesMultiSig is Initializable {
     ) external onlySmartnodes {
         lockedTokens[_validator].locked = locked;
         lockedTokens[_validator].enough = enough;
+    }
+
+    function getProposalData(
+        uint256 _proposalId
+    ) external view returns (Proposal memory) {
+        return proposals[_proposalId];
+    }
+
+    function isActiveValidator(
+        address _validatorAddress
+    ) external view returns (bool) {
+        return isValidator[_validatorAddress];
+    }
+
+    function getNumValidators() external view returns (uint256) {
+        return validators.length;
+    }
+
+    function getSelectedValidators() external view returns (address[] memory) {
+        return currentRoundValidators;
     }
 }
