@@ -4,13 +4,16 @@ pragma solidity ^0.8.5;
 import "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin-upgradeable/contracts/interfaces/IERC20Upgradeable.sol";
 import "./interfaces/ISmartnodesCore.sol";
+import "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Upgradeable.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
+import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
 /** 
     * @title SmartnodesMultiSig
     * @dev A multi-signature contract composed of Smartnodes validators responsible for
      managing the Core contract
 */
-contract SmartnodesMultiSig is Initializable {
+contract SmartnodesMultiSig is Initializable, VRFConsumerBaseV2Upgradeable {
     enum FunctionType {
         DeactivateValidator,
         CompleteJob
@@ -32,6 +35,17 @@ contract SmartnodesMultiSig is Initializable {
         bool enough;
     }
 
+    // Chainlink VRF Parameters
+    uint64 s_subscriptionId;
+    address linkAddress = 0x779877A7B0D9E8603169DdbD7836e478b4624789;
+    bytes32 s_keyHash =
+        0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
+    uint32 callbackGasLimit = 100000;
+    uint16 requestConfirmations = 2;
+    uint32 numWords = 1;
+    address vrfCoordinator;
+    VRFCoordinatorV2Interface COORDINATOR;
+
     // State update constraints
     uint256 public lastProposal; // time of last proposal
     uint256 public constant UPDATE_TIME = 0; // 600; seconds required between state updates
@@ -48,6 +62,7 @@ contract SmartnodesMultiSig is Initializable {
 
     address[] public validators;
     address[] public currentRoundValidators;
+    uint256 public randomRequestId;
 
     mapping(address => bool) public isValidator; // For quick validator checks
     mapping(address => ValidatorTokens) public lockedTokens;
@@ -89,8 +104,14 @@ contract SmartnodesMultiSig is Initializable {
     }
 
     function initialize(
-        address target // Address of the main contract (Smart Nodes)
+        address target, // Address of the main contract (Smart Nodes)
+        address _validatorContract,
+        address _vrfCoordinator,
+        uint64 _subscriptionId
     ) public initializer {
+        __VRFConsumerBaseV2_init(_vrfCoordinator);
+        COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
+
         smartnodesContractAddress = target;
         maxStateUpdates = 20;
         _smartnodesContractInstance = ISmartnodesCore(target);
@@ -235,6 +256,7 @@ contract SmartnodesMultiSig is Initializable {
                     allWorkers[allWorkerInd] = workers[j];
                     allWorkerInd++;
                 }
+
                 // } else if (proposal.functionTypes[i] == FunctionType.DisputeJob) {
                 //     uint256 jobId = abi.decode(proposal.data[i], (uint256));
                 //     _smartnodesContractInstance.disputeJob(jobId);
@@ -264,7 +286,7 @@ contract SmartnodesMultiSig is Initializable {
 
         proposal.executed = true;
         lastProposal = block.timestamp;
-        // currentRoundValidators = _generateValidatorCandidates();
+        randomRequestId = _requestRandomness();
         emit ProposalExecuted(_proposalId);
     }
 
@@ -303,32 +325,6 @@ contract SmartnodesMultiSig is Initializable {
         emit ValidatorRemoved(validator);
     }
 
-    // Pseudorandom selection of validators TODO Swap to VRF implementation?
-    function generateValidatorCandidates()
-        external
-        view
-        returns (address[] memory)
-    {
-        uint8 nValidators = 1;
-
-        // Ensure there are validators available to select from
-        require(validators.length > 0, "No validators available");
-
-        address[] memory selectedValidators = new address[](nValidators);
-        uint256 selectedCount = 0;
-
-        for (uint256 i = 0; i < nValidators; i++) {
-            uint256 randId = uint256(
-                keccak256(abi.encodePacked(block.timestamp, msg.sender, i))
-            ) % validators.length;
-
-            selectedValidators[i] = validators[randId];
-            selectedCount++;
-        }
-
-        return selectedValidators;
-    }
-
     function _isCurrentRoundValidator(
         address _validator
     ) internal view returns (bool) {
@@ -347,6 +343,50 @@ contract SmartnodesMultiSig is Initializable {
     ) external onlySmartnodes {
         lockedTokens[_validator].locked = locked;
         lockedTokens[_validator].enough = enough;
+    }
+
+    function _requestRandomness() internal returns (uint256 requestId) {
+        require(validators.length > 0, "No validators available");
+
+        // Request random words from Chainlink VRF
+        requestId = COORDINATOR.requestRandomWords(
+            s_keyHash,
+            s_subscriptionId,
+            requestConfirmations,
+            callbackGasLimit,
+            numWords
+        );
+
+        return requestId;
+    }
+
+    // Random selection of validators for next proposals once a random number is received
+    function fulfillRandomWords(
+        uint256 requestId,
+        uint256[] memory randomWords
+    ) internal override {
+        require(validators.length > 0, "No validators available");
+        require(
+            msg.sender == vrfCoordinator,
+            "Only VRF coordinator can fulfil this request!"
+        );
+        require(randomWords.length > 0, "No random words provided");
+        require(requestId == randomRequestId, "Invalid request!");
+
+        uint256 randomValue = randomWords[0];
+        uint8 nValidators = 3; // TODO dynamic or static gloabal nValidator parameter
+
+        address[] memory selectedValidators = new address[](nValidators);
+
+        for (uint8 i = 0; i < nValidators; i++) {
+            uint256 randomIndex = randomValue % validators.length;
+            selectedValidators[i] = validators[randomIndex];
+
+            // Re-select if already picked
+            randomValue = uint256(keccak256(abi.encodePacked(randomValue, i)));
+        }
+
+        currentRoundValidators = selectedValidators;
     }
 
     function getProposalData(
