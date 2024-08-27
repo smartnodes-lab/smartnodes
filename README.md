@@ -1,62 +1,30 @@
-# Smartnodes
+## Introduction
 
-## Main Ideas
-- expansive user-reputation system for peer-to-peer (P2P) interactions unlocking the potential of online and off-chain work
-- integrates participation & reputation-based metrics, rewards, and a seamless UI to form a vibrant marketplace of peer-to-peer tasks
-  - proofs of jobs/interactions are stored with each user to secure the network and aid in the recruitment of users for tasks
-- Use-cases include but are not limited to:
-  - The moderation of online and real-world ecosystems (social media, insurance)
-  - On-demand ML model execution and training
-  - Marketplace for jobs & job connections, utilizing the unique proofs for better recruitment of employees
-  - Various tasks whos work can be proven & stored in some way on the blockchain (e.g. homework help, coding problems, data analysis, writing etc.)
-- APIs in multiple programming languages, allowing users to seamlessly connect their systems to the network
-- Allows automated systems to manage problems & workflows using collective human intelligence, as well as distributed computations
-- Multiple blockchains for different scalability/security trade-offs and native reward coins/tokens
+Smartnodes is an ecosystem of peer-to-peer (P2P) networks designed to democratize access to computational resources and data-driven technologies. Our goal is to create an open and decentralized economy of distributed resources, empowering individuals and researchers with advanced tools while allowing people to monetize their hardware and time. Through smart contract-secured P2P networks, Smartnodes facilitates coordination of nodes and resources, driving advancements in artificial intelligence, data analysis, and other computational fields by providing secure, scalable, and flexible resource sharing.
 
-## Users
-- Descriptors/filter words (i.e. sex, DoB, nationality, religion, occupation, interests, skills)
-- Hold reputation and/or hash of previous completed jobs (eg ratings, % accuracy, majority votes)
- 
-## ML-Net
-- Co-operative and competitive AI training & model execution, potentially even markets for models and datasets
-  -  "Cloud network architecture" for distributed machine learning execution
-  -  On-demand API calls to these models for execution (e.g. for an LLM-based helper-bot online)
-- Types of ML task ideas:
-  - **bloom**: concurrent random initialized weights
-    - layer_dims: input, output
-    - workflow: pull data -> model forward pass -> loss -> model backward pass -> update
-  - **cascade**: models combine to form one super-model
-    - layer_dims: input, fully connected layer(s), output
-    - workflow: pull data from source -> model forward pass -> loss -> model backward pass -> update
-  - **ensemble**: multiple unique models being trained/executed and provided to the user
-    - layer_dims: input, output
-  - **execute**: execution of a specific model
-    - layer_dims: all dims
-- types of ML-Users:
-  - **sense**: takes input data and feeds it to another user
-  - **inter**: takes user data and feeds it to another user (abstract)
-  - **integ**: combine previous data to an output whose loss can be calculated
-- TODO:
-  - integrate execution & learning types
-  - job hashing / proof of work
-  - contract for each ml-net?
-  
-## Task-Net
-- The most basic task will be a multiple choice/voting problem and will contain a title, description (problem), possible
-  repsonses, reward, and a list of users
-- Once a task is cast to the network (i.e. question or censuses), then a random or filtered selection of users are asked
-  to respond to the task
-- Tasks have a locked reward, which can be distributed among the majority voters or randomly
-- can be closed manually, after a certain number of votes is reached, or ultimately after a number of blocks to manage contract storage
-- cost can be fixed/proportional to number or quality of voters 
-- poll description can include recommended format/responses (e.g. multiple choice), this can help the automated system 
-  determine when to close the poll and the quality of the answers
-- If the answer is time consuming, once a user has submitted the task is locked with the reward and the issuer can 
-  accept or decline the solution. If declined, the disputed task must be re-instantiated to the tasknet (or maybe a 
-  dispute-net) to vote on the outcome (return funds, re-post the task, etc)
 
-## Preventing Abuse
-- Off-chain data stream for fast data transfer, proofs can be prioritized on-chain
-- Repuation can be a combination of a score provided by the users (i.e. the 'employers'), the number of tasks completed, % accepted solutions/majority vote, and decreasing loss/increasing accuracy of validation data
-- Contest-net where users can dispute through a reporting system (disputed poll is fed back to a seperate dispute network)
-  - all users are required to participate, similar to a jury
+## Smart Contracts
+
+At the core of the Smartnodes ecosystem lies a deployment of smart contracts that handle critical functions, ensuring seamless coordination, security, and transparency within the network. 
+
+## Smartnodes Core
+
+Delegation of Roles and Permissions: role-specific permissions to methods ensure proper access control, validator-multisig control over job and state updates.
+Storage of Worker and Validator History: keeps track of the history and reputation of users, along with storage of key user and node data.
+Distribution of Rewards and Payments: native token SNO generated and distributed fairly among workers and validators. To be used for payment of services and securing validator nodes.
+
+The main contract is managed by a multisignature wallet composed of active, collateralized validators. Contract updates operate on a rolling basis, where proposals are submitted every 10 minutes by a random selection of validators. The proposal receiving the most votes triggers a contract update with the provided information, such as user registration, worker information, and job-related events. Every state update is accompanied by a token generation event which is distributed fairly among participating validators and workers. 
+
+
+## Peer-to-Peer Networks
+
+P2P networks built on Smartnodes enable efficient and secure interactions between workers and users to provide frictionless access to services. Individual networks are designed for a specific use case, and specialized to aggregate, distribute, and deliver a certain resource to users. Participants of the Smartnodes ecosystem possess a set of cryptographic keys that link their off-chain identity to the smart contract. This cryptographic layer ensures that only those with explicit authority to establish connections can do so, bolstering the security and authenticity of every interaction. Users can be classified into three categories.
+
+Users interact with the Smartnodes network to submit job requests for access to the network’s pooled resources. They connect to validators to request jobs and initialize connections with workers for task execution.
+
+Validators are responsible for the management of on and off-chain information. These validators operate on a specific P2P network, working to maintain a distributed hash table for node and job querying, while managing interactions between users and workers. They peer into worker-user processes, conduct proof-of-work requests to ensure proper actions, and update the job data structure with relevant information (e.g., worker reputations, job-specific data). Validators aggregate this off-chain data and vote on the integrity of these updates to the main contract, where information is finalized.
+
+Workers are task-specific nodes that carry out jobs for users. They stand by and execute computational tasks assigned by validators, ensuring efficient completion of user requests.
+
+Malicious workers are identified, and their reputations are updated or blacklisted based on their behavior.
+By leveraging these mechanisms, Smartnodes creates a secure, efficient, and accessible platform for computational tasks, ensuring fair and transparent interactions among all participants.
