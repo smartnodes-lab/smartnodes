@@ -15,7 +15,7 @@ contract SmartnodesCore is ERC20Upgradeable {
 
     // Counters for storage indexing / IDs
     uint256 public validatorIdCounter;
-    uint256 public userIdCounter;
+    uint256 public userCounter;
     uint256 public jobCounter;
     uint256 public activeValidators;
     uint256 public minValidators;
@@ -26,16 +26,15 @@ contract SmartnodesCore is ERC20Upgradeable {
     event UnlockInitiated(address indexed validator, uint256 unlockTime);
     event TokensUnlocked(address indexed validator, uint256 amount);
     event JobRequested(
-        uint256 indexed jobId,
+        bytes32 indexed jobHash,
         uint256 timestamp,
         address[] seedValidators
     );
-    event JobCompleted(uint256 indexed jobId, uint256 timestamp);
-    event JobDisputed(uint256 indexed jobId, uint256 timestamp);
+    event JobCompleted(bytes32 indexed jobId, uint256 timestamp);
+    event JobDisputed(bytes32 indexed jobId, uint256 timestamp);
 
     // User data with key information (address, RSA key hash, reputation)
     struct User {
-        uint256 id;
         address userAddress;
         bytes32 publicKeyHash;
         uint8 reputation;
@@ -43,9 +42,8 @@ contract SmartnodesCore is ERC20Upgradeable {
 
     // Validator data with key information (address, RSA key hash, locked value, reputation, activity)
     struct Validator {
-        uint256 id;
-        address validatorAddress;
         bytes32 publicKeyHash;
+        address validatorAddress;
         uint256 locked;
         uint256 unlockTime;
         uint8 reputation;
@@ -53,7 +51,6 @@ contract SmartnodesCore is ERC20Upgradeable {
 
     // Information for  a generic off-chain job (job hash [key for kademlia lookup], seed validators, participants, author, etc)
     struct Job {
-        uint256 id;
         address author;
         address[] seedValidators;
         address[] workers;
@@ -66,22 +63,20 @@ contract SmartnodesCore is ERC20Upgradeable {
     uint256 constant tailEmission = 1e18;
 
     uint256 public halving = 2160; // number of state updates until next halving (~3 months)
-    uint256 public emissionRate = 2048e18; // amount of tokens to be emitted per state update
+    uint256 public emissionRate = 512e18; // amount of tokens to be emitted per state update
     uint256 public lockAmount = 50_000e18; // minimum validator locked tokens required
     uint256 public unlockPeriod = 50400;
     uint256 public timeSinceLastHalving;
 
     // Main datastructure mappings via id lookup
-    mapping(uint256 => User) public users;
+    mapping(bytes32 => User) public users;
     mapping(uint256 => Validator) public validators;
-    mapping(uint256 => Job) public jobs;
-
+    mapping(bytes32 => Job) public jobs;
     uint256[] public activeJobs;
 
     // Helpful mappings
-    mapping(address => uint256) public userIdByAddress;
+    mapping(address => bytes32) public userHashByAddress;
     mapping(address => uint256) public validatorIdByAddress;
-    mapping(bytes32 => uint256) public jobIdByUserIdHash; // temporary for validator job creation?
 
     modifier onlyValidatorMultiSig() {
         require(
@@ -98,31 +93,29 @@ contract SmartnodesCore is ERC20Upgradeable {
         __ERC20_init("Smartnodes", "SNO");
 
         // Set all counters to 1 (when looking up values, 0 = Not found)
-        userIdCounter = 1;
+        userCounter = 1;
         jobCounter = 1;
         validatorIdCounter = 1;
 
         // Set ERC20 token parameters
-        emissionRate = 2048e18; // amount of tokens to be emitted per state update
-        lockAmount = 50_000e18; // minimum validator locked tokens required
-        halving = 2160;
-        unlockPeriod = 50400; // (seconds)
+        emissionRate = 512e18; // amount of tokens to be emitted per state update
+        lockAmount = 10_000e18; // minimum validator locked tokens required
+        halving = 8736; // Number of state updates before reward halving
+        unlockPeriod = 1_209_600; // (seconds)
         timeSinceLastHalving = 0;
 
-        uint256 devWallets = 2_341_280e18;
-        uint256 communityFunding = 2_000_000e18;
-        uint256 idoAmount = 3_500_000e18;
-        communityFunding += idoAmount; // We are sending the ido amount to the community wallet while we await an initial token sale
+        uint256 devWallets = 750_000e18; // For genesis nodes
+        uint256 communityWallet = 1_750_000e18; // 1.5M for IDO, 0.25M for community endeavours
 
         for (uint i = 0; i < _leadDevelopers.length; i++) {
             _mint(_leadDevelopers[i], devWallets / _leadDevelopers.length);
         }
 
-        _mint(_communityWallet, communityFunding);
+        _mint(_communityWallet, communityWallet);
 
         // Other parameters
         minValidators = 1;
-        maxValidators = 3;
+        maxValidators = 5;
     }
 
     function setValidatorContract(address validatorAddress) external {
@@ -139,17 +132,19 @@ contract SmartnodesCore is ERC20Upgradeable {
      */
     function createUser(bytes32 _publicKeyHash) external {
         // Only one address & public key hash per user.
-        require(userIdByAddress[msg.sender] == 0, "User already registered.");
+        require(
+            userHashByAddress[msg.sender] == bytes32(0),
+            "User already registered."
+        );
 
-        users[userIdCounter] = User({
-            id: userIdCounter,
+        users[_publicKeyHash] = User({
             userAddress: msg.sender,
             publicKeyHash: _publicKeyHash,
             reputation: 50
         });
 
-        userIdByAddress[msg.sender] = userIdCounter;
-        userIdCounter++;
+        userHashByAddress[msg.sender] = _publicKeyHash;
+        userCounter++;
     }
 
     /**
@@ -171,9 +166,8 @@ contract SmartnodesCore is ERC20Upgradeable {
 
         // Create validator on SmartnodesCore
         validators[validatorIdCounter] = Validator({
-            id: validatorIdCounter,
-            validatorAddress: msg.sender,
             publicKeyHash: _publicKeyHash,
+            validatorAddress: msg.sender,
             locked: lockAmount,
             unlockTime: 0,
             reputation: 50
@@ -189,19 +183,19 @@ contract SmartnodesCore is ERC20Upgradeable {
 
     // User Job Requesting Via Chainlink VRF TODO
     function requestJob(
+        bytes32 userHash,
+        bytes32 jobHash,
         uint256[] calldata _capacities
     ) external returns (uint256[] memory validatorIds) {
-        uint256 uid = userIdByAddress[msg.sender];
-
-        require(uid != 0, "User not registered.");
-        require(_capacities[0] > 0, "Capacity must be greater zero.");
-        require(
-            validatorContractAddress != address(0),
-            "Validator contract not set!"
-        );
+        if (msg.sender != validatorContractAddress) {
+            userHash = userHashByAddress[msg.sender];
+        }
+        require(userHash != bytes32(0), "User not registered!");
+        require(jobs[jobHash].author == address(0), "Job already created.");
+        // require(_capacities[0] > 0, "Capacity must be greater zero.");
 
         address[] memory _seedValidators = _validatorContractInstance
-            .generateValidatorCandidates();
+            .generateValidators();
         uint256[] memory _validatorIds = new uint256[](_seedValidators.length);
 
         for (uint256 i = 0; i < _seedValidators.length; i++) {
@@ -209,8 +203,7 @@ contract SmartnodesCore is ERC20Upgradeable {
         }
 
         // Store the job in the jobs mapping
-        jobs[jobCounter] = Job({
-            id: jobCounter,
+        jobs[jobHash] = Job({
             author: msg.sender,
             seedValidators: _seedValidators,
             workers: new address[](_capacities.length),
@@ -218,31 +211,31 @@ contract SmartnodesCore is ERC20Upgradeable {
             activity: true
         });
 
-        emit JobRequested(jobCounter, block.timestamp, _seedValidators);
+        emit JobRequested(jobHash, block.timestamp, _seedValidators);
         jobCounter++;
 
         return _validatorIds;
     }
 
     function completeJob(
-        uint256 jobId,
+        bytes32 jobHash,
         address[] memory _workers
     ) external onlyValidatorMultiSig returns (uint256[] memory) {
-        require(_workers.length == jobs[jobId].capacities.length);
+        require(_workers.length == jobs[jobHash].capacities.length);
 
-        jobs[jobId].workers = _workers;
-        jobs[jobId].activity = false;
-        // jobIdByUserIdHash[userIdHash] = 0;
+        jobs[jobHash].workers = _workers;
+        jobs[jobHash].activity = false;
+        // jobIdByUserHash[userIdHash] = 0;
 
-        emit JobCompleted(jobId, block.timestamp);
+        emit JobCompleted(jobHash, block.timestamp);
 
-        return jobs[jobId].capacities;
+        return jobs[jobHash].capacities;
     }
 
-    function disputeJob(uint256 jobId) external onlyValidatorMultiSig {
-        Job storage job = jobs[jobId];
+    function disputeJob(bytes32 jobHash) external onlyValidatorMultiSig {
+        Job storage job = jobs[jobHash];
         job.activity = false;
-        emit JobDisputed(jobId, block.timestamp);
+        emit JobDisputed(jobHash, block.timestamp);
     }
 
     /**
@@ -354,30 +347,29 @@ contract SmartnodesCore is ERC20Upgradeable {
 
     // Returns a list of all the selected validators for a job request
     function getJobValidators(
-        uint256 jobId
+        bytes32 jobHash
     ) external view returns (address[] memory) {
-        require(jobId < jobCounter, "Invalid job ID");
-        if (jobs[jobId].id == jobId) {
-            address[] memory jobValidators = jobs[jobId].seedValidators;
-            return jobValidators;
-        } else {
-            revert("Job not found!");
-        }
+        address[] memory jobValidators = jobs[jobHash].seedValidators;
+        return jobValidators;
     }
 
-    function getValidatorInfo(
-        uint256 _validatorId
-    ) external view returns (bool, bytes32) {
-        require(_validatorId < validatorIdCounter, "Invalid ID.");
-        Validator storage _validator = validators[_validatorId];
-        bool isActive = _validatorContractInstance.isActiveValidator(
-            _validator.validatorAddress
-        );
-        return (isActive, _validator.publicKeyHash);
-    }
+    // function getValidatorInfo(
+    //     uint256 _validatorId
+    // ) external view returns (bool, bytes32, address) {
+    //     require(_validatorId < validatorIdCounter, "Invalid ID.");
+    //     Validator storage _validator = validators[_validatorId];
+    //     bool isActive = _validatorContractInstance.isActiveValidator(
+    //         _validator.validatorAddress
+    //     );
+    //     return (
+    //         isActive,
+    //         _validator.publicKeyHash,
+    //         _validator.validatorAddress
+    //     );
+    // }
 
     function getUserCount() external view returns (uint256) {
-        return userIdCounter - 1;
+        return userCounter - 1;
     }
 
     function getValidatorCount() external view returns (uint256) {
@@ -403,5 +395,13 @@ contract SmartnodesCore is ERC20Upgradeable {
 
     function getProposees() external view returns (address[] memory) {
         return _validatorContractInstance.getSelectedValidators();
+    }
+
+    function getState()
+        external
+        view
+        returns (uint256, uint256, uint256, address[] memory)
+    {
+        return _validatorContractInstance.getState();
     }
 }

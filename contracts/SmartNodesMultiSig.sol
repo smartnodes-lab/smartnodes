@@ -13,12 +13,12 @@ import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/V
     * @dev A multi-signature contract composed of Smartnodes validators responsible for
      managing the Core contract
 */
-contract SmartnodesMultiSig is Initializable, VRFConsumerBaseV2Upgradeable {
+contract SmartnodesMultiSig is Initializable {
     enum FunctionType {
         DeactivateValidator,
+        CreateJob,
         CompleteJob
-        // DisputeJob,
-        // CreateJob
+        // DisputeJob
     }
 
     // Proposal for a Smartnodes Update
@@ -36,15 +36,15 @@ contract SmartnodesMultiSig is Initializable, VRFConsumerBaseV2Upgradeable {
     }
 
     // Chainlink VRF Parameters
-    uint64 s_subscriptionId;
-    address linkAddress = 0x779877A7B0D9E8603169DdbD7836e478b4624789;
-    bytes32 s_keyHash =
-        0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
-    uint32 callbackGasLimit = 100000;
-    uint16 requestConfirmations = 2;
-    uint32 numWords = 1;
-    address vrfCoordinator;
-    VRFCoordinatorV2Interface COORDINATOR;
+    // uint64 s_subscriptionId;
+    // address linkAddress = 0x779877A7B0D9E8603169DdbD7836e478b4624789;
+    // bytes32 s_keyHash =
+    //     0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
+    // uint32 callbackGasLimit = 100000;
+    // uint16 requestConfirmations = 2;
+    // uint32 numWords = 1;
+    // address vrfCoordinator;
+    // VRFCoordinatorV2Interface COORDINATOR;
 
     // State update constraints
     uint256 public lastProposal; // time of last proposal
@@ -104,19 +104,22 @@ contract SmartnodesMultiSig is Initializable, VRFConsumerBaseV2Upgradeable {
     }
 
     function initialize(
-        address target, // Address of the main contract (Smart Nodes)
-        address _validatorContract,
-        address _vrfCoordinator,
-        uint64 _subscriptionId
-    ) public initializer {
-        __VRFConsumerBaseV2_init(_vrfCoordinator);
-        COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
+        address target // Address of the main contract (Smart Nodes)
+    )
+        public
+        // address _vrfCoordinator,
+        // uint64 _subscriptionId
+        initializer
+    {
+        // __VRFConsumerBaseV2_init(_vrfCoordinator);
+        // COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
 
         smartnodesContractAddress = target;
         maxStateUpdates = 20;
         _smartnodesContractInstance = ISmartnodesCore(target);
         lastProposal = 0; // time of last proposal
         requiredApprovalsPercentage = 66;
+        // s_subscriptionId = _subscriptionId;
     }
 
     receive() external payable {
@@ -189,7 +192,7 @@ contract SmartnodesMultiSig is Initializable, VRFConsumerBaseV2Upgradeable {
         );
         require(
             !isValidator[validator],
-            "Validator already registered on MultSig!"
+            "Validator already registered on Multsig!"
         );
 
         validators.push(validator);
@@ -240,11 +243,24 @@ contract SmartnodesMultiSig is Initializable, VRFConsumerBaseV2Upgradeable {
                 address validator = abi.decode(proposal.data[i], (address));
                 _removeValidator(validator);
 
-                // Update job completions
+                // Create new jobs
+            } else if (proposal.functionTypes[i] == FunctionType.CreateJob) {
+                (
+                    bytes32 userHash,
+                    bytes32 jobHash,
+                    uint256[] memory _capacities
+                ) = abi.decode(proposal.data[i], (bytes32, bytes32, uint256[]));
+                _smartnodesContractInstance.requestJob(
+                    userHash,
+                    jobHash,
+                    _capacities
+                );
+
+                // Update existing jobs
             } else if (proposal.functionTypes[i] == FunctionType.CompleteJob) {
-                (uint256 jobId, address[] memory workers) = abi.decode(
+                (bytes32 jobId, address[] memory workers) = abi.decode(
                     proposal.data[i],
-                    (uint256, address[])
+                    (bytes32, address[])
                 );
 
                 uint256[] memory capacities = _smartnodesContractInstance
@@ -260,12 +276,6 @@ contract SmartnodesMultiSig is Initializable, VRFConsumerBaseV2Upgradeable {
                 // } else if (proposal.functionTypes[i] == FunctionType.DisputeJob) {
                 //     uint256 jobId = abi.decode(proposal.data[i], (uint256));
                 //     _smartnodesContractInstance.disputeJob(jobId);
-                // } else if (proposal.functionTypes[i] == FunctionType.CreateJob) {
-                //     (bytes32 userHash, uint256[] memory _capacities) = abi.decode(
-                //         proposal.data[i],
-                //         (bytes32, uint256[])
-                //     );
-                //     _smartnodesContractInstance.requestJob(userHash, _capacities);
             }
         }
 
@@ -286,7 +296,7 @@ contract SmartnodesMultiSig is Initializable, VRFConsumerBaseV2Upgradeable {
 
         proposal.executed = true;
         lastProposal = block.timestamp;
-        randomRequestId = _requestRandomness();
+        // randomRequestId = _requestRandomness();
         emit ProposalExecuted(_proposalId);
     }
 
@@ -345,49 +355,71 @@ contract SmartnodesMultiSig is Initializable, VRFConsumerBaseV2Upgradeable {
         lockedTokens[_validator].enough = enough;
     }
 
-    function _requestRandomness() internal returns (uint256 requestId) {
-        require(validators.length > 0, "No validators available");
-
-        // Request random words from Chainlink VRF
-        requestId = COORDINATOR.requestRandomWords(
-            s_keyHash,
-            s_subscriptionId,
-            requestConfirmations,
-            callbackGasLimit,
-            numWords
-        );
-
-        return requestId;
-    }
-
-    // Random selection of validators for next proposals once a random number is received
-    function fulfillRandomWords(
-        uint256 requestId,
-        uint256[] memory randomWords
-    ) internal override {
-        require(validators.length > 0, "No validators available");
+    function generateValidators() external view returns (address[] memory) {
+        uint8 nValidators = 1;
         require(
-            msg.sender == vrfCoordinator,
-            "Only VRF coordinator can fulfil this request!"
+            validators.length > nValidators,
+            "Not enough active validators!"
         );
-        require(randomWords.length > 0, "No random words provided");
-        require(requestId == randomRequestId, "Invalid request!");
-
-        uint256 randomValue = randomWords[0];
-        uint8 nValidators = 3; // TODO dynamic or static gloabal nValidator parameter
 
         address[] memory selectedValidators = new address[](nValidators);
+        uint256 selectedCount = 0;
 
-        for (uint8 i = 0; i < nValidators; i++) {
-            uint256 randomIndex = randomValue % validators.length;
-            selectedValidators[i] = validators[randomIndex];
+        for (uint256 i = 0; i < nValidators; i++) {
+            uint256 randId = uint256(
+                keccak256(abi.encode(block.timestamp, msg.sender, i))
+            ) % validators.length;
 
-            // Re-select if already picked
-            randomValue = uint256(keccak256(abi.encodePacked(randomValue, i)));
+            selectedValidators[i] = validators[randId];
+            selectedCount++;
         }
 
-        currentRoundValidators = selectedValidators;
+        return selectedValidators;
     }
+
+    // function _requestRandomness() internal returns (uint256 requestId) {
+    //     require(validators.length > 0, "No validators available");
+
+    //     // Request random words from Chainlink VRF
+    //     requestId = COORDINATOR.requestRandomWords(
+    //         s_keyHash,
+    //         s_subscriptionId,
+    //         requestConfirmations,
+    //         callbackGasLimit,
+    //         numWords
+    //     );
+
+    //     return requestId;
+    // }
+
+    // // Random selection of validators for next proposals once a random number is received
+    // function fulfillRandomWords(
+    //     uint256 requestId,
+    //     uint256[] memory randomWords
+    // ) internal override {
+    //     require(validators.length > 0, "No validators available");
+    //     require(
+    //         msg.sender == vrfCoordinator,
+    //         "Only VRF coordinator can fulfil this request!"
+    //     );
+    //     require(randomWords.length > 0, "No random words provided");
+    //     require(requestId == randomRequestId, "Invalid request!");
+
+    //     uint256 randomValue = randomWords[0];
+    //     uint8 nValidators = 3; // TODO dynamic or static gloabal nValidator parameter
+
+    //     address[] memory selectedValidators = new address[](nValidators);
+
+    //     for (uint8 i = 0; i < nValidators; i++) {
+    //         uint256 randomIndex = randomValue % validators.length;
+    //         selectedValidators[i] = validators[randomIndex];
+
+    //         // Re-select if already picked
+    //         randomValue = uint256(keccak256(abi.encodePacked(randomValue, i)));
+    //     }
+
+    //     currentRoundValidators = selectedValidators;
+    // }
 
     function getProposalData(
         uint256 _proposalId
@@ -407,5 +439,18 @@ contract SmartnodesMultiSig is Initializable, VRFConsumerBaseV2Upgradeable {
 
     function getSelectedValidators() external view returns (address[] memory) {
         return currentRoundValidators;
+    }
+
+    function getState()
+        external
+        view
+        returns (uint256, uint256, uint256, address[] memory)
+    {
+        return (
+            lastProposal,
+            nextProposalId,
+            validators.length,
+            currentRoundValidators
+        );
     }
 }

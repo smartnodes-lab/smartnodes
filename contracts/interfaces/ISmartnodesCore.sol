@@ -5,11 +5,12 @@ interface ISmartnodesCore {
     function createUser(bytes32 _publicKeyHash) external;
     function createValidator(bytes32 _publicKeyHash) external;
     function requestJob(
-        bytes32 userIdHash,
+        bytes32 userHash,
+        bytes32 jobHash,
         uint256[] calldata _capacities
     ) external returns (uint256[] memory);
     function completeJob(
-        uint256 jobId,
+        bytes32 jobHash,
         address[] memory _workers
     ) external returns (uint256[] memory);
     function disputeJob(uint256 jobId) external;
@@ -30,4 +31,11 @@ interface ISmartnodesCore {
     function getEmissionRate() external view returns (uint256);
     function getSupply() external view returns (uint256);
     function isLocked(address validatorAddr) external view returns (bool);
+    function getValidatorInfo(
+        uint256 _validatorId
+    ) external view returns (bool, bytes32, address);
+    function getState()
+        external
+        view
+        returns (uint256, uint256, uint256, address[] memory);
 }

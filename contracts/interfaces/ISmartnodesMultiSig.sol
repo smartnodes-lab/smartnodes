@@ -14,15 +14,16 @@ interface ISmartnodesMultiSig {
         uint256 locked,
         bool enough
     ) external;
-    function generateValidatorCandidates()
-        external
-        view
-        returns (address[] memory);
+    function generateValidators() external view returns (address[] memory);
     function isActiveValidator(
         address _validatorAddress
     ) external view returns (bool);
     function getNumValidators() external view returns (uint256);
     function getSelectedValidators() external view returns (address[] memory);
+    function getState()
+        external
+        view
+        returns (uint256, uint256, uint256, address[] memory);
 
     enum FunctionType {
         UpdateValidator,
