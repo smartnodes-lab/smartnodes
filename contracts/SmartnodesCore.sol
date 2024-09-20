@@ -60,7 +60,7 @@ contract SmartnodesCore is ERC20Upgradeable {
 
     // ERC20 token supply metrics
     uint256 public constant MAX_SUPPLY = 21_000_000e18;
-    uint256 constant tailEmission = 1e18;
+    uint256 constant _TAIL_EMISSION = 8e18;
 
     uint256 public halving = 2160; // number of state updates until next halving (~3 months)
     uint256 public emissionRate = 512e18; // amount of tokens to be emitted per state update
@@ -190,13 +190,14 @@ contract SmartnodesCore is ERC20Upgradeable {
         if (msg.sender != validatorContractAddress) {
             userHash = userHashByAddress[msg.sender];
         }
+
         require(userHash != bytes32(0), "User not registered!");
         require(jobs[jobHash].author == address(0), "Job already created.");
         // require(_capacities[0] > 0, "Capacity must be greater zero.");
 
         address[] memory _seedValidators = _validatorContractInstance
-            .generateValidators();
-        uint256[] memory _validatorIds = new uint256[](_seedValidators.length);
+            .generateValidators(1);
+        uint256[] memory _validatorIds = new uint256[](1); // (_seedValidators.length);
 
         for (uint256 i = 0; i < _seedValidators.length; i++) {
             _validatorIds[i] = validatorIdByAddress[_seedValidators[i]];
@@ -252,12 +253,6 @@ contract SmartnodesCore is ERC20Upgradeable {
         validators[validatorId].locked += amount;
         uint256 totalLocked = validators[validatorId].locked;
 
-        _validatorContractInstance.updateLockedTokens(
-            sender,
-            totalLocked,
-            totalLocked >= lockAmount
-        );
-
         emit TokensLocked(sender, amount);
     }
 
@@ -283,11 +278,6 @@ contract SmartnodesCore is ERC20Upgradeable {
 
             // Update multisig validator
             uint256 totalLocked = validator.locked - amount;
-            _validatorContractInstance.updateLockedTokens(
-                msg.sender,
-                totalLocked,
-                totalLocked >= lockAmount
-            );
 
             emit UnlockInitiated(msg.sender, validator.unlockTime); // Optional: emit an event
         } else {
@@ -325,12 +315,13 @@ contract SmartnodesCore is ERC20Upgradeable {
             }
         }
 
-        uint256 validatorRewardTotal = (emissionRate * 40) / 100;
-        uint256 workerRewardTotal = (emissionRate * 60) / 100;
+        uint256 validatorRewardTotal = (emissionRate * 20) / 100;
+        uint256 workerRewardTotal = (emissionRate * 80) / 100;
 
         // Distribute rewards for validators equally
         uint256 validatorReward = validatorRewardTotal /
             _validatorsVoted.length;
+
         for (uint256 v = 0; v < _validatorsVoted.length; v++) {
             _mint(_validatorsVoted[v], validatorReward);
         }
@@ -353,20 +344,29 @@ contract SmartnodesCore is ERC20Upgradeable {
         return jobValidators;
     }
 
-    // function getValidatorInfo(
-    //     uint256 _validatorId
-    // ) external view returns (bool, bytes32, address) {
-    //     require(_validatorId < validatorIdCounter, "Invalid ID.");
-    //     Validator storage _validator = validators[_validatorId];
-    //     bool isActive = _validatorContractInstance.isActiveValidator(
-    //         _validator.validatorAddress
-    //     );
-    //     return (
-    //         isActive,
-    //         _validator.publicKeyHash,
-    //         _validator.validatorAddress
-    //     );
-    // }
+    function getValidatorInfo(
+        uint256 _validatorId
+    ) external view returns (bool, bytes32, address) {
+        require(_validatorId < validatorIdCounter, "Invalid ID.");
+        Validator memory _validator = validators[_validatorId];
+        bool isActive = _validatorContractInstance.isActiveValidator(
+            _validator.validatorAddress
+        );
+        return (
+            isActive,
+            _validator.publicKeyHash,
+            _validator.validatorAddress
+        );
+    }
+
+    function getValidatorBytes(
+        address validatorAddress
+    ) external view returns (bytes32) {
+        uint256 validatorId = validatorIdByAddress[validatorAddress];
+        require(validatorId > 0, "Validator does not exist.");
+
+        return validators[validatorId].publicKeyHash;
+    }
 
     function getUserCount() external view returns (uint256) {
         return userCounter - 1;

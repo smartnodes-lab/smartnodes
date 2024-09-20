@@ -27,12 +27,6 @@ contract SmartnodesMultiSig is Initializable {
         FunctionType[] functionTypes;
         bytes[] data;
         bool executed;
-        uint256 _approvals;
-    }
-
-    struct ValidatorTokens {
-        uint256 locked;
-        bool enough;
     }
 
     // Chainlink VRF Parameters
@@ -47,30 +41,36 @@ contract SmartnodesMultiSig is Initializable {
     // VRFCoordinatorV2Interface COORDINATOR;
 
     // State update constraints
-    uint256 public lastProposal; // time of last proposal
-    uint256 public constant UPDATE_TIME = 0; // 600; seconds required between state updates
+    uint256 public constant UPDATE_TIME = 600; // 10 minutes required between state updates
     uint256 public requiredApprovalsPercentage;
-    uint256 public maxStateUpdates;
-
-    // Counters for storage indexing / IDs
-    uint256 public nextProposalId;
     uint256 public requiredApprovals;
+    uint256 public maxStateUpdates; // Maximum number of function calls per proposal
+    uint256 public lastProposalTime; // time of last proposal
 
     // Metadata and bytecode for SmartNodes calls
     ISmartnodesCore private _smartnodesContractInstance;
     address public smartnodesContractAddress;
 
+    // Counters for storage indexing / IDs
+    uint256 public randomRequestId;
+    uint256 public nextProposalId;
+    uint8 public nValidators;
+
     address[] public validators;
     address[] public currentRoundValidators;
-    uint256 public randomRequestId;
+    Proposal[] public currentProposals;
 
     mapping(address => bool) public isValidator; // For quick validator checks
-    mapping(address => ValidatorTokens) public lockedTokens;
     mapping(uint256 => Proposal) public proposals;
-    mapping(uint256 => mapping(address => bool)) public approvals;
-    mapping(uint256 => mapping(uint256 => address)) public approvedValidators;
+    mapping(address => bool) public hasSubmittedProposal;
+    mapping(address => mapping(uint8 => bool)) public votes;
+    mapping(uint8 => uint256) public numVotes;
 
-    event ProposalCreated(uint256 proposalId, bytes data);
+    event ProposalCreated(
+        uint256 proposalId,
+        uint8 proposalNum,
+        bytes32 validatorId
+    );
     event Voted(uint256 proposalId, address validator);
     event ProposalExecuted(uint256 proposalId);
     event Deposit(address indexed sender, uint amount);
@@ -86,7 +86,7 @@ contract SmartnodesMultiSig is Initializable {
         _;
     }
 
-    modifier onlySmartnodes() {
+    modifier onlySmartnodesCore() {
         require(
             msg.sender == smartnodesContractAddress,
             "Caller must be the SmartnodesMultiSig."
@@ -99,6 +99,10 @@ contract SmartnodesMultiSig is Initializable {
             _isCurrentRoundValidator(msg.sender) ||
                 currentRoundValidators.length == 0,
             "Caller is not a selected validator for this round!"
+        );
+        require(
+            !hasSubmittedProposal[msg.sender],
+            "Validator has already submitted a proposal this round!"
         );
         _;
     }
@@ -117,8 +121,9 @@ contract SmartnodesMultiSig is Initializable {
         smartnodesContractAddress = target;
         maxStateUpdates = 20;
         _smartnodesContractInstance = ISmartnodesCore(target);
-        lastProposal = 0; // time of last proposal
-        requiredApprovalsPercentage = 66;
+        lastProposalTime = 0; // time of last proposal
+        requiredApprovalsPercentage = 65;
+        nValidators = 2;
         // s_subscriptionId = _subscriptionId;
     }
 
@@ -136,91 +141,80 @@ contract SmartnodesMultiSig is Initializable {
         bytes[] memory _data
     ) external onlySelectedValidator {
         require(
-            block.timestamp - lastProposal >= UPDATE_TIME,
-            "Proposals must be submitted after UPDATE_TIME since last approved proposal!"
+            block.timestamp - lastProposalTime <= UPDATE_TIME,
+            "Proposals must be submitted 0-10 mins after since last executed proposal!"
         );
+
         require(
             _functionTypes.length == _data.length,
             "Function types and data length must match!"
         );
 
-        Proposal storage proposal = proposals[nextProposalId];
-        proposal.id = nextProposalId;
-        proposal.functionTypes = _functionTypes;
-        proposal.data = _data;
+        Proposal memory proposal = Proposal({
+            id: nextProposalId,
+            functionTypes: _functionTypes,
+            data: _data,
+            executed: false
+        });
 
-        emit ProposalCreated(nextProposalId, abi.encode(_functionTypes, _data));
+        currentProposals.push(proposal);
+        uint8 proposalNum = uint8(currentProposals.length);
+        hasSubmittedProposal[msg.sender] = true;
 
-        nextProposalId++;
+        bytes32 validatorId = _smartnodesContractInstance.getValidatorBytes(
+            msg.sender
+        );
+
+        emit ProposalCreated(nextProposalId, proposalNum, validatorId);
     }
 
     /**
      * @notice Casts a vote for a proposal and executes once required approvals are met. Add Validator to storage
       if it has just registered and is not stored on MultiSig. 
-     * @param _proposalId The ID of the proposal
+     * @param proposalNum The ID of the current round proposal
      */
-    function approveTransaction(uint256 _proposalId) external {
+    function approveTransaction(uint8 proposalNum) external {
         require(
-            !approvals[_proposalId][msg.sender],
-            "Validator already voted on this transaction!"
+            !votes[msg.sender][proposalNum],
+            "Validator has already voted!"
+        );
+        require(
+            currentProposals.length >= proposalNum,
+            "Invalid proposal number!"
         );
 
         if (isValidator[msg.sender] == false) {
             addValidator(msg.sender);
         }
 
-        Proposal storage proposal = proposals[_proposalId];
-        approvedValidators[_proposalId][proposal._approvals] = msg.sender;
-        proposal._approvals++;
+        votes[msg.sender][proposalNum] = true;
+        numVotes[proposalNum]++;
 
-        approvals[_proposalId][msg.sender] = true;
-        emit Voted(_proposalId, msg.sender);
+        emit Voted(proposalNum, msg.sender);
 
-        if (proposals[_proposalId]._approvals >= requiredApprovals) {
-            _executeTransaction(_proposalId);
+        if (numVotes[proposalNum] >= requiredApprovals) {
+            // proposals[nextProposalId] = proposal;
+            _executeTransaction(proposalNum);
         }
     }
 
     /**
-     * @notice Adds a new validator to the contract
-     * @param validator The address of the new validator
-     */
-    function addValidator(address validator) public {
-        require(
-            lockedTokens[validator].enough,
-            "Validator must be registered and locked on SmartnodesCore!"
-        );
-        require(
-            !isValidator[validator],
-            "Validator already registered on Multsig!"
-        );
-
-        validators.push(validator);
-        isValidator[validator] = true;
-        _updateApprovalRequirements();
-
-        emit ValidatorAdded(validator);
-    }
-
-    function removeValidator(address validator) external onlyValidator {
-        require(msg.sender == validator, "Cannot remove another validator!");
-        _removeValidator(validator);
-    }
-
-    /**
      * @notice Executes a proposal if it has enough approvals. Only to be called by approveTransaction
-     * @param _proposalId The ID of the proposal to be executed
+     * @param proposalNum The ID of the proposal to be executed
      */
-    function _executeTransaction(uint256 _proposalId) internal onlyValidator {
-        Proposal storage proposal = proposals[_proposalId];
+    function _executeTransaction(uint8 proposalNum) internal onlyValidator {
+        // Load Proposal
+        Proposal memory proposal = currentProposals[proposalNum];
+
         require(!proposal.executed, "Proposal already executed.");
         require(
             proposal.functionTypes.length <= maxStateUpdates,
             "Must not exceed max state updates!"
         );
-        uint256 totalWorkers = 0;
 
         // Get total number of participant workers and their capacities
+        uint256 totalWorkers = 0;
+
         for (uint i = 0; i < proposal.functionTypes.length; i++) {
             if (proposal.functionTypes[i] == FunctionType.CompleteJob) {
                 (uint256 jobId, address[] memory workers) = abi.decode(
@@ -231,12 +225,13 @@ contract SmartnodesMultiSig is Initializable {
             }
         }
 
-        // Get proportional capacities for each worker
+        // Vars for calculating proportional capacities for each worker
         uint256[] memory allCapacities = new uint256[](totalWorkers);
         address[] memory allWorkers = new address[](totalWorkers);
         uint256 totalCapacity = 0;
         uint256 allWorkerInd = 0;
 
+        // Handle each state update function call
         for (uint i = 0; i < proposal.functionTypes.length; i++) {
             // Update connected validator stats
             if (proposal.functionTypes[i] == FunctionType.DeactivateValidator) {
@@ -256,7 +251,7 @@ contract SmartnodesMultiSig is Initializable {
                     _capacities
                 );
 
-                // Update existing jobs
+                // Update completed existing jobs
             } else if (proposal.functionTypes[i] == FunctionType.CompleteJob) {
                 (bytes32 jobId, address[] memory workers) = abi.decode(
                     proposal.data[i],
@@ -272,21 +267,26 @@ contract SmartnodesMultiSig is Initializable {
                     allWorkers[allWorkerInd] = workers[j];
                     allWorkerInd++;
                 }
+            }
+            // } else if (proposal.functionTypes[i] == FunctionType.DisputeJob) {
+            //     uint256 jobId = abi.decode(proposal.data[i], (uint256));
+            //     _smartnodesContractInstance.disputeJob(jobId);
+        }
 
-                // } else if (proposal.functionTypes[i] == FunctionType.DisputeJob) {
-                //     uint256 jobId = abi.decode(proposal.data[i], (uint256));
-                //     _smartnodesContractInstance.disputeJob(jobId);
+        // Gather validators who voted on the transaction
+        address[] memory _approvedValidators = new address[](
+            numVotes[proposalNum]
+        );
+
+        for (uint i = 0; i < validators.length; i++) {
+            address validator = validators[i];
+
+            if (votes[validator][proposalNum]) {
+                _approvedValidators[i] = validator;
             }
         }
 
-        address[] memory _approvedValidators = new address[](
-            proposal._approvals
-        );
-
-        for (uint i = 0; i < proposal._approvals; i++) {
-            _approvedValidators[i] = approvedValidators[_proposalId][i];
-        }
-
+        // Call mint function to generate rewards for workers and validators
         _smartnodesContractInstance.mintTokens(
             allWorkers,
             allCapacities,
@@ -294,10 +294,42 @@ contract SmartnodesMultiSig is Initializable {
             _approvedValidators
         );
 
+        // Clean up old proposals, 1000 length window allows 20 days for proposals to be disputed, delete unused proposals
+        if (nextProposalId > 1000) {
+            delete proposals[nextProposalId - 1000];
+        }
+
         proposal.executed = true;
-        lastProposal = block.timestamp;
-        // randomRequestId = _requestRandomness();
-        emit ProposalExecuted(_proposalId);
+        emit ProposalExecuted(proposal.id);
+        proposals[nextProposalId] = proposal;
+        _resetCurrentValidators();
+        _updateRound();
+    }
+
+    /**
+     * @notice Adds a new validator to the contract
+     * @param validator The address of the new validator
+     */
+    function addValidator(address validator) public {
+        require(
+            _checkLockedTokens(validator),
+            "Validator must be registered and locked on SmartnodesCore!"
+        );
+        require(
+            !isValidator[validator],
+            "Validator already registered on Multsig!"
+        );
+
+        validators.push(validator);
+        isValidator[validator] = true;
+        _updateApprovalRequirements();
+
+        emit ValidatorAdded(validator);
+    }
+
+    function removeValidator(address validator) external onlyValidator {
+        require(msg.sender == validator, "Cannot remove another validator!");
+        _removeValidator(validator);
     }
 
     /**
@@ -346,26 +378,97 @@ contract SmartnodesMultiSig is Initializable {
         return false;
     }
 
-    function updateLockedTokens(
-        address _validator,
-        uint256 locked,
-        bool enough
-    ) external onlySmartnodes {
-        lockedTokens[_validator].locked = locked;
-        lockedTokens[_validator].enough = enough;
+    function _updateRound() internal {
+        for (uint8 i = 0; i < currentProposals.length; i++) {
+            numVotes[i] = 0;
+        }
+        for (uint i = 0; i < validators.length; i++) {
+            address validator = validators[i];
+            for (uint8 n = 0; n < currentProposals.length; n++) {
+                votes[validator][n] = false;
+            }
+        }
+
+        while (currentProposals.length > 0) {
+            currentProposals.pop();
+        }
+
+        lastProposalTime = block.timestamp;
+        // randomRequestId = _requestRandomness();
+        nextProposalId++;
     }
 
-    function generateValidators() external view returns (address[] memory) {
-        uint8 nValidators = 1;
+    function _resetCurrentValidators() internal {
+        // Clear submission status and other parameters
+        for (uint256 i = 0; i < currentRoundValidators.length; i++) {
+            hasSubmittedProposal[currentRoundValidators[i]] = false;
+        }
+
+        // If it's the genesis proposal and no round validators exist
+        if (currentRoundValidators.length == 0) {
+            for (uint256 i = 0; i < validators.length; i++) {
+                hasSubmittedProposal[validators[i]] = false;
+            }
+        }
+
+        delete currentRoundValidators;
+
         require(
-            validators.length > nValidators,
+            validators.length >= nValidators,
             "Not enough active validators!"
         );
 
+        // Create a temporary array to store selected validators
         address[] memory selectedValidators = new address[](nValidators);
         uint256 selectedCount = 0;
+        uint nonce = 0;
 
-        for (uint256 i = 0; i < nValidators; i++) {
+        while (selectedCount < nValidators) {
+            uint256 randId = uint256(
+                keccak256(
+                    abi.encode(
+                        block.timestamp,
+                        msg.sender,
+                        selectedCount,
+                        nonce
+                    )
+                )
+            ) % validators.length;
+
+            address selectedValidator = validators[randId];
+
+            // Check if the validator is already selected
+            bool alreadySelected = false;
+            for (uint256 j = 0; j < selectedCount; j++) {
+                if (selectedValidators[j] == selectedValidator) {
+                    alreadySelected = true;
+                    break;
+                }
+            }
+
+            // If not selected, add to the current round and increment counter
+            if (!alreadySelected) {
+                selectedValidators[selectedCount] = selectedValidator;
+                currentRoundValidators.push(selectedValidator);
+                selectedCount++;
+            }
+
+            nonce++;
+        }
+    }
+
+    function generateValidators(
+        uint256 numValidators
+    ) external view returns (address[] memory) {
+        require(
+            validators.length > numValidators,
+            "Not enough active validators!"
+        );
+
+        address[] memory selectedValidators = new address[](numValidators);
+        uint256 selectedCount = 0;
+
+        for (uint256 i = 0; i < numValidators; i++) {
             uint256 randId = uint256(
                 keccak256(abi.encode(block.timestamp, msg.sender, i))
             ) % validators.length;
@@ -421,16 +524,16 @@ contract SmartnodesMultiSig is Initializable {
     //     currentRoundValidators = selectedValidators;
     // }
 
-    function getProposalData(
-        uint256 _proposalId
-    ) external view returns (Proposal memory) {
-        return proposals[_proposalId];
-    }
-
     function isActiveValidator(
         address _validatorAddress
     ) external view returns (bool) {
         return isValidator[_validatorAddress];
+    }
+
+    function _checkLockedTokens(
+        address validatorAddress
+    ) internal view returns (bool) {
+        return _smartnodesContractInstance.isLocked(validatorAddress);
     }
 
     function getNumValidators() external view returns (uint256) {
@@ -441,16 +544,41 @@ contract SmartnodesMultiSig is Initializable {
         return currentRoundValidators;
     }
 
+    // Get detailed info on a current proposal
+    function getProposalData(
+        uint8 _proposalId
+    ) external view returns (Proposal memory) {
+        return proposals[_proposalId];
+    }
+
+    function getCurrentProposal(
+        uint8 proposalNum
+    ) external view returns (uint[] memory, bytes[] memory) {
+        Proposal memory proposal = currentProposals[proposalNum];
+
+        uint[] memory functionTypeAsUint = new uint[](
+            proposal.functionTypes.length
+        );
+        for (uint i = 0; i < proposal.functionTypes.length; i++) {
+            functionTypeAsUint[i] = uint(proposal.functionTypes[i]);
+        }
+
+        return (functionTypeAsUint, proposal.data);
+    }
+
+    // Get basic info on the current state of the validator multisig
     function getState()
         external
         view
         returns (uint256, uint256, uint256, address[] memory)
     {
         return (
-            lastProposal,
+            lastProposalTime,
             nextProposalId,
             validators.length,
             currentRoundValidators
         );
     }
+
+    // function getContractParams() external view returns () {}
 }

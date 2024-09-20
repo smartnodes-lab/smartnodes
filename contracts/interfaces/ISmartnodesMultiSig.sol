@@ -14,12 +14,17 @@ interface ISmartnodesMultiSig {
         uint256 locked,
         bool enough
     ) external;
-    function generateValidators() external view returns (address[] memory);
+    function generateValidators(
+        uint256 numValidators
+    ) external view returns (address[] memory);
     function isActiveValidator(
         address _validatorAddress
     ) external view returns (bool);
     function getNumValidators() external view returns (uint256);
     function getSelectedValidators() external view returns (address[] memory);
+    function getCurrentProposal(
+        uint8 proposalNum
+    ) external view returns (uint[] memory, bytes[] memory);
     function getState()
         external
         view

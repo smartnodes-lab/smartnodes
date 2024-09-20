@@ -10,8 +10,8 @@ import os
 
 load_dotenv(".env", override=True)
 
-DEPLOY_NEW = False
-UPGRADE = True
+DEPLOY_NEW = True
+UPGRADE = False
 
 
 def deploy_proxy_admin(account):
@@ -151,68 +151,74 @@ def main():
     print(f"Validator: {sno.validators(1)}")
     print(f"User: {sno.users('0d976b7e1fd59537000313e274dc6a9d035ebaf95f4b8857740f7c799abd8629')}")
     print(f"Job: {sno.jobs(hashlib.sha256().hexdigest())}")
-    print(f"Proposal: {sno_multisig.proposals(0)}")
+    print(f"Proposal: {sno_multisig.proposals(1)}")
     print(f"Multisig State: {sno.getState()}")
-    print(f"Outstanding Tokens: {sno.totalSupply()}")
+    print(f"Outstanding Tokens: {sno.totalSupply()/1e18}\n\n")
     
-    # job_hash = bytes.fromhex(hashlib.sha256().hexdigest())
-    # user_hash = bytes.fromhex('0d976b7e1fd59537000313e274dc6a9d035ebaf95f4b8857740f7c799abd8629')
-    # worker_addresses = [accounts[3].address, accounts[0].address]
+    job_hash = bytes.fromhex(hashlib.sha256().hexdigest())
+    user_hash = bytes.fromhex('0d976b7e1fd59537000313e274dc6a9d035ebaf95f4b8857740f7c799abd8629')
+    worker_addresses = [accounts[3].address, accounts[0].address]
       
-    # # Call data 1: Remove validator
-    # calldata1 = [[0], [encode(["address"], [accounts[2].address])]]
+    # Call data 1: Remove validator
+    calldata1 = [[0], [encode(["address"], [accounts[2].address])]]
 
-    # # Call data 2: Request job for a user
-    # calldata2 = [[1], [encode(
-    #     ["bytes32", "bytes32", "uint256[]"],
-    #     [user_hash, job_hash, [int(1e9), int(1e9)]]
-    # )]]
+    # Call data 2: Request job for a user
+    calldata2 = [[1], [encode(
+        ["bytes32", "bytes32", "uint256[]"],
+        [user_hash, job_hash, [int(1e9), int(1e9)]]
+    )]]
 
-    # # Call data 3: Finish outstanding job.
-    # calldata3 = [[2], [encode(
-    #     ["bytes32", "address[]"],
-    #     [job_hash, worker_addresses]
-    # )]]
+    # Call data 3: Finish outstanding job.
+    calldata3 = [[2], [encode(
+        ["bytes32", "address[]"],
+        [job_hash, worker_addresses]
+    )]]
 
-    # # Remove validator test
-    # sno_multisig.createProposal(calldata1[0], calldata1[1], {"from": accounts[1]})
-    # sno_multisig.approveTransaction(0, {"from": account})
-    # sno_multisig.approveTransaction(0, {"from": accounts[2]})
+    # Remove validator test
+    sno_multisig.createProposal(calldata1[0], calldata1[1], {"from": accounts[1]})
+    proposal1 = sno_multisig.getCurrentProposal(0)
+    tx = sno_multisig.approveTransaction(0, {"from": account})
+    tx = sno_multisig.approveTransaction(0, {"from": accounts[1]})
 
-    # print("\n_________________Contract State_________________")
-    # print(f"Validator: {sno.validators(1)}")
-    # print(f"User: {sno.users('0d976b7e1fd59537000313e274dc6a9d035ebaf95f4b8857740f7c799abd8629')}")
-    # print(f"Job: {sno.jobs(hashlib.sha256().hexdigest())}")
-    # print(f"Proposal: {sno_multisig.proposals(0)}")
-    # print(f"Multisig State: {sno.getState()}")
-    # print(f"Outstanding Tokens: {sno.totalSupply()/1e18}")
+    print("\n_________________Contract State_________________\n")
+    print(f"Validator: {sno.validators(1)}")
+    print(f"User: {sno.users('0d976b7e1fd59537000313e274dc6a9d035ebaf95f4b8857740f7c799abd8629')}")
+    print(f"Job: {sno.jobs(hashlib.sha256().hexdigest())}")
+    print(f"Proposal: {sno_multisig.proposals(1)}")
+    print(f"Multisig State: {sno.getState()}")
+    print(f"Outstanding Tokens: {sno.totalSupply()/1e18}\n\n")
 
-    # # Job Creation Test
-    # # sno.requestJob(user_hash, job_hash, [int(1e9), int(1e9)], {"from": accounts[4]})
-    # sno_multisig.createProposal(calldata2[0], calldata2[1], {"from": accounts[1]})
-    # sno_multisig.approveTransaction(1, {"from": account})
-    # sno_multisig.approveTransaction(1, {"from": accounts[1]})
+    # Job Creation Test
+    # sno.requestJob(user_hash, job_hash, [int(1e9), int(1e9)], {"from": accounts[4]})
+    sno_multisig.createProposal(calldata2[0], calldata2[1], {"from": accounts[1]})
+    proposal2 = sno_multisig.getCurrentProposal(0)
+    sno_multisig.approveTransaction(0, {"from": account})
+    sno_multisig.approveTransaction(0, {"from": accounts[1]})
 
-    # print("\n_________________Contract State_________________")
-    # print(f"Validator: {sno.validators(1)}")
-    # print(f"User: {sno.users('0d976b7e1fd59537000313e274dc6a9d035ebaf95f4b8857740f7c799abd8629')}")
-    # print(f"Job: {sno.jobs(hashlib.sha256().hexdigest())}")
-    # print(f"Proposal: {sno_multisig.proposals(0)}")
-    # print(f"Multisig State: {sno.getState()}")
-    # print(f"Outstanding Tokens: {sno.totalSupply()/1e18}")
+    print("\n_________________Contract State_________________\n")
+    print(f"Validator: {sno.validators(1)}")
+    print(f"User: {sno.users('0d976b7e1fd59537000313e274dc6a9d035ebaf95f4b8857740f7c799abd8629')}")
+    print(f"Job: {sno.jobs(hashlib.sha256().hexdigest())}")
+    print(f"Proposal: {sno_multisig.proposals(1)}")
+    print(f"Multisig State: {sno.getState()}")
+    print(f"Outstanding Tokens: {sno.totalSupply()/1e18}\n\n")
 
-    # # Job completion test
-    # sno_multisig.createProposal(calldata3[0], calldata3[1], {"from": account})
-    # sno_multisig.approveTransaction(2, {"from": accounts[1]})
-    # sno_multisig.approveTransaction(2, {"from": account})
+    # Job completion test
+    sno_multisig.createProposal(calldata3[0], calldata3[1], {"from": account})
+    proposal3 = sno_multisig.getCurrentProposal(0)
+    sno_multisig.approveTransaction(0, {"from": accounts[1]})
+    sno_multisig.approveTransaction(0, {"from": account})
     
-    # # sno.unlockTokens(10e18, {"from": account})
+    # sno.unlockTokens(10e18, {"from": account})
 
-    # print("\n_________________Final Contract State_________________")
-    # print(f"Validator: {sno.validators(1)}")
-    # print(f"User: {sno.users('0d976b7e1fd59537000313e274dc6a9d035ebaf95f4b8857740f7c799abd8629')}")
-    # print(f"Job: {sno.jobs(hashlib.sha256().hexdigest())}")
-    # print(f"Proposal: {sno_multisig.proposals(0)}")
-    # print(f"Multisig State: {sno.getState()}")
-    # print(f"Outstanding Tokens: {sno.totalSupply()/1e18}")
+    print("\n_________________Final Contract State_________________\n")
+    print(f"Validator: {sno.validators(1)}")
+    print(f"User: {sno.users('0d976b7e1fd59537000313e274dc6a9d035ebaf95f4b8857740f7c799abd8629')}")
+    print(f"Job: {sno.jobs(hashlib.sha256().hexdigest())}")
+    print(f"Proposal: {sno_multisig.proposals(1)}")
+    print(f"Multisig State: {sno.getState()}")
+    print(f"Outstanding Tokens: {sno.totalSupply()/1e18}")
+    print(f"Proposal 1: {proposal1}")
+    print(f"Proposal 2: {proposal2}")
+    print(f"Proposal 3: {proposal3}")
     

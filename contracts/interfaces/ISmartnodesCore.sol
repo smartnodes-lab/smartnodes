@@ -34,6 +34,9 @@ interface ISmartnodesCore {
     function getValidatorInfo(
         uint256 _validatorId
     ) external view returns (bool, bytes32, address);
+    function getValidatorBytes(
+        address validatorAddress
+    ) external view returns (bytes32);
     function getState()
         external
         view
