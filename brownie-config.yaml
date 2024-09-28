@@ -11,9 +11,9 @@ compiler:
       - "@chainlink=smartcontractkit/chainlink-brownie-contracts@1.1.0"
 networks:
   default: ganache-local
-  sepolia:
-    host: https://sepolia.infura.io/v3/f577fc71ebf242b597e22bc9cda753c9
-    chainid: 11155111
+  base-sepolia:
+    host: https://base-sepolia.infura.io/v3/4bb158409bfe45d49cea535f20975671
+    chainid: 84532
 dotenv: .env
 wallets:
   from_key: ${PRIVATE_KEY}

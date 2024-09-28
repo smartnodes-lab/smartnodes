@@ -59,17 +59,18 @@ contract SmartnodesCore is ERC20Upgradeable {
     }
 
     // ERC20 token supply metrics
-    uint256 public constant MAX_SUPPLY = 21_000_000e18;
-    uint256 constant _TAIL_EMISSION = 8e18;
+    uint256 constant TAIL_EMISSION = 2e18;
 
-    uint256 public halving = 2160; // number of state updates until next halving (~3 months)
-    uint256 public emissionRate = 512e18; // amount of tokens to be emitted per state update
-    uint256 public lockAmount = 50_000e18; // minimum validator locked tokens required
-    uint256 public unlockPeriod = 50400;
+    uint256 public halving; // number of state updates until next halving (~3 months)
+    uint256 public emissionRate; // amount of tokens to be emitted per state update
+    uint256 public lockAmount; // minimum validator locked tokens required
+    uint256 public unlockPeriod;
     uint256 public timeSinceLastHalving;
 
     // Main datastructure mappings via id lookup
     mapping(bytes32 => User) public users;
+    mapping(bytes32 => address) public workers;
+    mapping(bytes32 => address) public validatorAddressByHash;
     mapping(uint256 => Validator) public validators;
     mapping(bytes32 => Job) public jobs;
     uint256[] public activeJobs;
@@ -86,10 +87,7 @@ contract SmartnodesCore is ERC20Upgradeable {
         _;
     }
 
-    function initialize(
-        address[] memory _leadDevelopers,
-        address _communityWallet
-    ) public initializer {
+    function initialize(address[] memory _genesisNodes) public initializer {
         __ERC20_init("Smartnodes", "SNO");
 
         // Set all counters to 1 (when looking up values, 0 = Not found)
@@ -98,20 +96,15 @@ contract SmartnodesCore is ERC20Upgradeable {
         validatorIdCounter = 1;
 
         // Set ERC20 token parameters
-        emissionRate = 512e18; // amount of tokens to be emitted per state update
-        lockAmount = 10_000e18; // minimum validator locked tokens required
-        halving = 8736; // Number of state updates before reward halving
+        emissionRate = 256e18; // amount of tokens to be emitted per state update
+        lockAmount = 100_000e18; // minimum validator locked tokens required
+        halving = 52452222; // Number of state updates before reward halving
         unlockPeriod = 1_209_600; // (seconds)
         timeSinceLastHalving = 0;
 
-        uint256 devWallets = 750_000e18; // For genesis nodes
-        uint256 communityWallet = 1_750_000e18; // 1.5M for IDO, 0.25M for community endeavours
-
-        for (uint i = 0; i < _leadDevelopers.length; i++) {
-            _mint(_leadDevelopers[i], devWallets / _leadDevelopers.length);
+        for (uint i = 0; i < _genesisNodes.length; i++) {
+            _mint(_genesisNodes[i], lockAmount);
         }
-
-        _mint(_communityWallet, communityWallet);
 
         // Other parameters
         minValidators = 1;
@@ -130,7 +123,7 @@ contract SmartnodesCore is ERC20Upgradeable {
     /**
      * @dev Create a User, limit one per address & public key hash (RSA)
      */
-    function createUser(bytes32 _publicKeyHash) external {
+    function createUser(bytes32 _publicKeyHash) public {
         // Only one address & public key hash per user.
         require(
             userHashByAddress[msg.sender] == bytes32(0),
@@ -174,6 +167,7 @@ contract SmartnodesCore is ERC20Upgradeable {
         });
 
         validatorIdByAddress[msg.sender] = validatorIdCounter;
+        validatorAddressByHash[_publicKeyHash] = msg.sender;
 
         // Lock token in contract
         _lockTokens(msg.sender, lockAmount);
@@ -187,8 +181,12 @@ contract SmartnodesCore is ERC20Upgradeable {
         bytes32 jobHash,
         uint256[] calldata _capacities
     ) external returns (uint256[] memory validatorIds) {
+        // If user directly requests a job, register if they have not already done so
         if (msg.sender != validatorContractAddress) {
-            userHash = userHashByAddress[msg.sender];
+            if (userHashByAddress[msg.sender] == bytes32(0)) {
+                createUser(userHash);
+                userHash = userHashByAddress[msg.sender];
+            }
         }
 
         require(userHash != bytes32(0), "User not registered!");
@@ -304,13 +302,8 @@ contract SmartnodesCore is ERC20Upgradeable {
         uint256 _totalCapacity,
         address[] memory _validatorsVoted
     ) external onlyValidatorMultiSig {
-        require(
-            totalSupply() + emissionRate <= MAX_SUPPLY,
-            "Maximum supply reached!"
-        );
-
         if (timeSinceLastHalving >= halving) {
-            if (emissionRate > 1e18) {
+            if (emissionRate > TAIL_EMISSION) {
                 emissionRate /= 2;
             }
         }

@@ -41,7 +41,7 @@ contract SmartnodesMultiSig is Initializable {
     // VRFCoordinatorV2Interface COORDINATOR;
 
     // State update constraints
-    uint256 public constant UPDATE_TIME = 600; // 10 minutes required between state updates
+    uint256 public constant UPDATE_TIME = 300; // 5 minutes minimum required between state updates
     uint256 public requiredApprovalsPercentage;
     uint256 public requiredApprovals;
     uint256 public maxStateUpdates; // Maximum number of function calls per proposal
@@ -119,11 +119,11 @@ contract SmartnodesMultiSig is Initializable {
         // COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
 
         smartnodesContractAddress = target;
-        maxStateUpdates = 20;
+        maxStateUpdates = 30;
         _smartnodesContractInstance = ISmartnodesCore(target);
         lastProposalTime = 0; // time of last proposal
         requiredApprovalsPercentage = 65;
-        nValidators = 2;
+        nValidators = 1;
         // s_subscriptionId = _subscriptionId;
     }
 
@@ -141,7 +141,7 @@ contract SmartnodesMultiSig is Initializable {
         bytes[] memory _data
     ) external onlySelectedValidator {
         require(
-            block.timestamp - lastProposalTime <= UPDATE_TIME,
+            block.timestamp - lastProposalTime >= UPDATE_TIME,
             "Proposals must be submitted 0-10 mins after since last executed proposal!"
         );
 
@@ -158,7 +158,7 @@ contract SmartnodesMultiSig is Initializable {
         });
 
         currentProposals.push(proposal);
-        uint8 proposalNum = uint8(currentProposals.length);
+        uint8 proposalNum = uint8(currentProposals.length) - 1;
         hasSubmittedProposal[msg.sender] = true;
 
         bytes32 validatorId = _smartnodesContractInstance.getValidatorBytes(
@@ -173,7 +173,7 @@ contract SmartnodesMultiSig is Initializable {
       if it has just registered and is not stored on MultiSig. 
      * @param proposalNum The ID of the current round proposal
      */
-    function approveTransaction(uint8 proposalNum) external {
+    function approveTransaction(uint8 proposalNum) external onlyValidator {
         require(
             !votes[msg.sender][proposalNum],
             "Validator has already voted!"
@@ -307,7 +307,7 @@ contract SmartnodesMultiSig is Initializable {
     }
 
     /**
-     * @notice Adds a new validator to the contract
+     * @notice Adds a new validator to the contract, must be staked on SmartnodesCore.
      * @param validator The address of the new validator
      */
     function addValidator(address validator) public {
@@ -554,11 +554,13 @@ contract SmartnodesMultiSig is Initializable {
     function getCurrentProposal(
         uint8 proposalNum
     ) external view returns (uint[] memory, bytes[] memory) {
+        require(proposalNum < currentProposals.length, "Proposal not found!");
         Proposal memory proposal = currentProposals[proposalNum];
 
         uint[] memory functionTypeAsUint = new uint[](
             proposal.functionTypes.length
         );
+
         for (uint i = 0; i < proposal.functionTypes.length; i++) {
             functionTypeAsUint[i] = uint(proposal.functionTypes[i]);
         }
